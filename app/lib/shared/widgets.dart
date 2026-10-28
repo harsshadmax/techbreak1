@@ -1,0 +1,74 @@
+import 'package:flutter/material.dart';
+
+import 'models.dart';
+
+/// Token amount with the coin icon used everywhere in the app.
+class TokenAmount extends StatelessWidget {
+  const TokenAmount(this.amount, {super.key, this.style});
+
+  final int amount;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.tertiary;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.toll, color: color, size: (style?.fontSize ?? 16) * 1.1),
+        const SizedBox(width: 4),
+        Text('$amount', style: style),
+      ],
+    );
+  }
+}
+
+/// Breakdown of tokens earned, shown after completing a session.
+class AwardList extends StatelessWidget {
+  const AwardList(this.awards, {super.key});
+
+  final List<Award> awards;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    if (awards.isEmpty) {
+      return Text(
+        'No tokens this time — sessions need at least 10 minutes and few interruptions.',
+        textAlign: TextAlign.center,
+        style: theme.textTheme.bodyMedium,
+      );
+    }
+    final total = awards.fold<int>(0, (n, a) => n + a.amount);
+    return Column(
+      children: [
+        TokenAmount(total, style: theme.textTheme.displaySmall),
+        const SizedBox(height: 12),
+        for (final a in awards)
+          ListTile(dense: true, title: Text(a.label), trailing: Text('+${a.amount}', style: theme.textTheme.titleMedium)),
+      ],
+    );
+  }
+}
+
+/// Loading / error wrapper for AsyncValue-driven screens.
+class ErrorRetry extends StatelessWidget {
+  const ErrorRetry({super.key, required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(message),
+          const SizedBox(height: 8),
+          OutlinedButton(onPressed: onRetry, child: const Text('Try again')),
+        ],
+      ),
+    );
+  }
+}
