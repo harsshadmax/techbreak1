@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_client.dart';
+import '../../core/timezone.dart';
 import '../../shared/models.dart';
 
 /// The signed-in user, or null when signed out.
@@ -15,9 +16,21 @@ class AuthController extends AsyncNotifier<User?> {
     await _api.tokens.load();
     if (_api.tokens.accessToken == null) return null;
     try {
-      return User.fromJson((await _api.get('/me'))['user'] as Json);
+      final user = User.fromJson((await _api.get('/me'))['user'] as Json);
+      return await _syncTimezone(user);
     } catch (_) {
       return null;
+    }
+  }
+
+  /// Streaks and daily goals roll over at local midnight, so keep the server's zone in step with the device.
+  Future<User> _syncTimezone(User user) async {
+    final zone = await deviceTimezone();
+    if (zone == null || zone == user.timezone) return user;
+    try {
+      return User.fromJson((await _api.patch('/me', {'timezone': zone}))['user'] as Json);
+    } catch (_) {
+      return user;
     }
   }
 
@@ -25,19 +38,17 @@ class AuthController extends AsyncNotifier<User?> {
   Future<void> login(String email, String password) =>
       _authenticate('/auth/login', {'email': email, 'password': password});
 
-  // TODO(week 5): send the device's IANA time zone (e.g. via the flutter_timezone package)
-  // so streaks and daily goals roll over at local midnight. The server defaults to UTC;
-  // it can be changed later with PATCH /me {timezone}.
-  Future<void> register(String email, String password, String displayName) => _authenticate('/auth/register', {
+  Future<void> register(String email, String password, String displayName) async => _authenticate('/auth/register', {
         'email': email,
         'password': password,
         'displayName': displayName,
+        if (await deviceTimezone() case final zone?) 'timezone': zone,
       });
 
   Future<void> _authenticate(String path, Json body) async {
     final res = await _api.post(path, body);
     await _api.tokens.save(res['accessToken'] as String, res['refreshToken'] as String);
-    state = AsyncData(User.fromJson(res['user'] as Json));
+    state = AsyncData(await _syncTimezone(User.fromJson(res['user'] as Json)));
   }
 
   /// Re-fetch the user after anything that changes balance, streak or avatar.

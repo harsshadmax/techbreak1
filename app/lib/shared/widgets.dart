@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import 'models.dart';
 
+/// The app theme makes filled buttons full-width; dialogs and list rows need them shrink-wrapped.
+final dialogButtonStyle = FilledButton.styleFrom(minimumSize: const Size(0, 40));
+
 /// Token amount with the coin icon used everywhere in the app.
 class TokenAmount extends StatelessWidget {
   const TokenAmount(this.amount, {super.key, this.style});
@@ -17,7 +20,13 @@ class TokenAmount extends StatelessWidget {
       children: [
         Icon(Icons.toll, color: color, size: (style?.fontSize ?? 16) * 1.1),
         const SizedBox(width: 4),
-        Text('$amount', style: style),
+        // A short scale/fade whenever the total changes, so a reward feels earned.
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 350),
+          transitionBuilder: (child, animation) =>
+              FadeTransition(opacity: animation, child: ScaleTransition(scale: Tween(begin: 0.6, end: 1.0).animate(animation), child: child)),
+          child: Text('$amount', key: ValueKey(amount), style: style),
+        ),
       ],
     );
   }

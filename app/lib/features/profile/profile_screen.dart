@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/api_client.dart';
+import '../../shared/avatar_view.dart';
 import '../../shared/models.dart';
 import '../../shared/widgets.dart';
 import '../auth/auth_controller.dart';
@@ -25,11 +27,10 @@ class ProfileScreen extends ConsumerWidget {
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: const Text('Add')),
+          FilledButton(style: dialogButtonStyle, onPressed: () => Navigator.pop(context, controller.text.trim()), child: const Text('Add')),
         ],
       ),
     );
-    controller.dispose();
     if (code == null || code.isEmpty || !context.mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     try {
@@ -63,7 +64,7 @@ class ProfileScreen extends ConsumerWidget {
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.pop(context, minutes.round()), child: const Text('Save')),
+            FilledButton(style: dialogButtonStyle, onPressed: () => Navigator.pop(context, minutes.round()), child: const Text('Save')),
           ],
         ),
       ),
@@ -92,9 +93,7 @@ class ProfileScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Center(
-            child: CircleAvatar(radius: 44, child: Text(user.avatarBase == 'fox' ? '🦊' : '🙂', style: const TextStyle(fontSize: 40))),
-          ),
+          Center(child: AvatarView(user: user)),
           const SizedBox(height: 12),
           Center(child: Text(user.displayName, style: text.headlineSmall)),
           Center(child: Text('Level ${user.level} · ${user.xp} XP', style: text.bodyMedium)),
@@ -129,6 +128,12 @@ class ProfileScreen extends ConsumerWidget {
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invite code copied')));
                     },
                   ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.insights_outlined),
+                  title: const Text('Insights'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/insights'),
                 ),
                 ListTile(
                   leading: const Icon(Icons.person_add_alt),

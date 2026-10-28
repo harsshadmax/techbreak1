@@ -68,7 +68,7 @@ class _RewardList extends ConsumerWidget {
         content: Text('This costs ${reward.cost} tokens.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(verb)),
+          FilledButton(style: dialogButtonStyle, onPressed: () => Navigator.pop(context, true), child: Text(verb)),
         ],
       ),
     );
@@ -98,8 +98,20 @@ class _RewardList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final equipped = ref.watch(authProvider).valueOrNull?.equipped.values.toSet() ?? const {};
-    if (rewards.isEmpty) return const Center(child: Text('Nothing here yet — run the server seed script.'));
+    return RefreshIndicator(
+      onRefresh: () => ref.refresh(rewardsProvider.future),
+      child: rewards.isEmpty
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: const [Padding(padding: EdgeInsets.all(32), child: Center(child: Text('Nothing here yet — run the server seed script.')))],
+            )
+          : _list(context, ref, equipped),
+    );
+  }
+
+  Widget _list(BuildContext context, WidgetRef ref, Set<String> equipped) {
     return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       itemCount: rewards.length,
       itemBuilder: (context, i) {

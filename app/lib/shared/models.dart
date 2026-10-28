@@ -24,6 +24,7 @@ class User {
     required this.dailyFocusGoalMin,
     required this.avatarBase,
     required this.equipped,
+    this.timezone = 'UTC',
   });
 
   factory User.fromJson(Map<String, dynamic> j) {
@@ -41,8 +42,11 @@ class User {
       dailyFocusGoalMin: _int(settings['dailyFocusGoalMin']),
       avatarBase: avatar['base'] as String? ?? 'fox',
       equipped: ((avatar['equipped'] as Map?) ?? {}).map((k, v) => MapEntry(k as String, v.toString())),
+      timezone: j['timezone'] as String? ?? 'UTC',
     );
   }
+
+  final String timezone;
 
   final String id;
   final String email;
@@ -60,17 +64,27 @@ class User {
 }
 
 class Goal {
-  const Goal({required this.focusTargetMin, required this.focusDoneMin, required this.achieved});
+  const Goal({
+    required this.focusTargetMin,
+    required this.focusDoneMin,
+    required this.achieved,
+    this.screenLimitMin = 0,
+    this.screenUsedMin = 0,
+  });
 
   factory Goal.fromJson(Map<String, dynamic> j) => Goal(
         focusTargetMin: _int(j['focusTargetMin']),
         focusDoneMin: _int(j['focusDoneMin']),
         achieved: j['achieved'] == true,
+        screenLimitMin: _int(j['screenLimitMin']),
+        screenUsedMin: _int(j['screenUsedMin']),
       );
 
   final int focusTargetMin;
   final int focusDoneMin;
   final bool achieved;
+  final int screenLimitMin;
+  final int screenUsedMin;
 
   double get progress => focusTargetMin == 0 ? 0 : (focusDoneMin / focusTargetMin).clamp(0, 1).toDouble();
 }
@@ -104,10 +118,12 @@ class Reward {
     required this.description,
     required this.cost,
     this.slot,
+    this.slug = '',
   });
 
   factory Reward.fromJson(Map<String, dynamic> j) => Reward(
         id: j['id'] as String,
+        slug: j['slug'] as String? ?? '',
         kind: j['kind'] as String,
         name: j['name'] as String,
         description: j['description'] as String? ?? '',
@@ -116,6 +132,7 @@ class Reward {
       );
 
   final String id;
+  final String slug;
   final String kind;
   final String name;
   final String description;
@@ -203,6 +220,42 @@ class LeaderboardEntry {
   final int focusMin;
   final int level;
   final bool isMe;
+}
+
+/// A focus or break session from `GET /sessions`.
+class SessionRec {
+  const SessionRec({required this.type, required this.status, required this.actualMin, required this.startedAt, required this.tokensAwarded});
+
+  factory SessionRec.fromJson(Map<String, dynamic> j) => SessionRec(
+        type: j['type'] as String? ?? 'focus',
+        status: j['status'] as String? ?? '',
+        actualMin: _int(j['actualMin']),
+        startedAt: DateTime.parse(j['startedAt'] as String),
+        tokensAwarded: _int(j['tokensAwarded']),
+      );
+
+  final String type;
+  final String status;
+  final int actualMin;
+  final DateTime startedAt;
+  final int tokensAwarded;
+}
+
+/// One row of the token ledger from `GET /tokens/transactions`.
+class TokenTx {
+  const TokenTx({required this.id, required this.amount, required this.reason, required this.createdAt});
+
+  factory TokenTx.fromJson(Map<String, dynamic> j) => TokenTx(
+        id: j['id'] as String? ?? j['_id'] as String,
+        amount: _int(j['amount']),
+        reason: j['reason'] as String? ?? '',
+        createdAt: DateTime.parse(j['createdAt'] as String),
+      );
+
+  final String id;
+  final int amount;
+  final String reason;
+  final DateTime createdAt;
 }
 
 List<T> parseList<T>(Object? raw, T Function(Map<String, dynamic>) fromJson) =>

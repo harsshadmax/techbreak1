@@ -57,10 +57,13 @@ class _ChallengesTab extends ConsumerWidget {
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => ErrorRetry(message: apiErrorMessage(e), onRetry: () => ref.invalidate(challengesProvider)),
           data: (items) {
-            if (items.isEmpty) return const Center(child: Text('No active challenges this week.'));
-            return ListView(
+            return RefreshIndicator(
+              onRefresh: () => ref.refresh(challengesProvider.future),
+              child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(16),
               children: [
+                if (items.isEmpty) const Padding(padding: EdgeInsets.all(32), child: Center(child: Text('No active challenges this week.'))),
                 for (final c in items)
                   Card(
                     child: Padding(
@@ -101,6 +104,7 @@ class _ChallengesTab extends ConsumerWidget {
                     ),
                   ),
               ],
+            ),
             );
           },
         );
@@ -119,15 +123,18 @@ class _LeaderboardTab extends ConsumerWidget {
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => ErrorRetry(message: apiErrorMessage(e), onRetry: () => ref.invalidate(leaderboardProvider(scope))),
           data: (entries) {
-            if (entries.isEmpty) {
-              return Center(
-                child: Text(scope == 'friends' ? 'Add friends from your profile to compete.' : 'No focus logged this week yet.'),
-              );
-            }
             return RefreshIndicator(
               onRefresh: () => ref.refresh(leaderboardProvider(scope).future),
               child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 children: [
+                  if (entries.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Center(
+                        child: Text(scope == 'friends' ? 'Add friends from your profile to compete.' : 'No focus logged this week yet.'),
+                      ),
+                    ),
                   for (final e in entries)
                     ListTile(
                       tileColor: e.isMe ? theme.colorScheme.primaryContainer.withValues(alpha: 0.4) : null,

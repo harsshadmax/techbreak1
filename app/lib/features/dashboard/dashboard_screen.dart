@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api_client.dart';
+import '../../shared/avatar_view.dart';
 import '../../shared/models.dart';
 import '../../shared/widgets.dart';
 import '../auth/auth_controller.dart';
@@ -30,7 +32,13 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final data = ref.watch(dashboardProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Today')),
+      appBar: AppBar(
+        title: const Text('Today'),
+        actions: [
+          if (ref.watch(authProvider).valueOrNull case final user?)
+            Padding(padding: const EdgeInsets.only(right: 12), child: AvatarView(user: user, radius: 16)),
+        ],
+      ),
       body: data.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => ErrorRetry(message: apiErrorMessage(e), onRetry: () => ref.invalidate(dashboardProvider)),
@@ -51,6 +59,8 @@ class DashboardScreen extends ConsumerWidget {
                   ref.invalidate(dashboardProvider);
                 },
               ),
+              const SizedBox(height: 16),
+              _ScreenTimeCard(goal: d.goal),
               if (d.challenges.isNotEmpty) ...[
                 const SizedBox(height: 24),
                 Text('Your challenges', style: Theme.of(context).textTheme.titleMedium),
@@ -69,6 +79,77 @@ class DashboardScreen extends ConsumerWidget {
               ],
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ScreenTimeCard extends ConsumerWidget {
+  const _ScreenTimeCard({required this.goal});
+
+  final Goal goal;
+
+  Future<void> _log(BuildContext context, WidgetRef ref) async {
+    final controller = TextEditingController(text: goal.screenUsedMin > 0 ? '${goal.screenUsedMin}' : '');
+    final minutes = await showDialog<int>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Today's screen time"),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          decoration: const InputDecoration(labelText: 'Total minutes so far'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          FilledButton(
+            style: dialogButtonStyle,
+            onPressed: () => Navigator.pop(context, int.tryParse(controller.text.trim())),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (minutes == null || !context.mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(apiProvider).post('/goals/today/screen-time', {'minutes': minutes});
+      ref.invalidate(dashboardProvider);
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(apiErrorMessage(e))));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final text = Theme.of(context).textTheme;
+    final over = goal.screenUsedMin > goal.screenLimitMin;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Screen time today', style: text.titleMedium),
+                  const SizedBox(height: 4),
+                  Text('${goal.screenUsedMin} of ${goal.screenLimitMin} minutes${over ? ' — over your limit' : ''}', style: text.bodyMedium),
+                  const SizedBox(height: 4),
+                  Text('Stay under your limit for +20 tokens, paid tomorrow.', style: text.bodySmall),
+                ],
+              ),
+            ),
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40)),
+              onPressed: () => _log(context, ref),
+              child: const Text('Log'),
+            ),
+          ],
         ),
       ),
     );
