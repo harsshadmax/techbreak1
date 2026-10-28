@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: techbreak-api
+    runtime: node
+    rootDir: server
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        sync: false # MongoDB Atlas connection string (must be a replica set)
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: https://techbreak-9f829.web.app,https://techbreak-9f829.firebaseapp.com
