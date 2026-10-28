@@ -1,436 +1,340 @@
-# TechBreak — Build Blueprint
+# TechBreak — 1-Day Claude Code Build Blueprint
 
 > A gamified token economy platform to combat digital distraction and promote self-regulation.
 > Source: *TechBreak – Gamified Digital Wellness* deck (Team 2, Capstone Project).
 
-This document turns the pitch deck into a buildable plan: scope, architecture, data model, token rules, API, screens, and a 14-week schedule.
+This file is written **for Claude Code**. Give it to Claude Code at the start of a session and it should be able to finish the project in about one working day (8–10 hours), phase by phase, verifying each step.
+
+**Start Claude Code with this prompt:**
+
+```text
+Read blueprint.md completely. Follow "Part A — Rules for Claude Code", then work
+through "Part C — Build Plan" phase by phase, starting at the first phase whose
+tasks are not all marked done. After each phase, run that phase's checks, fix
+anything that fails, commit, and update the Status column in this file.
+Stop and ask me only for the items listed under "Things only the human can do".
+```
 
 ---
 
-## 1. Product Summary
+## Part A — Rules for Claude Code
 
-**Problem.** Excessive screen time hurts productivity, mental well-being and real-life engagement. Existing apps *monitor* usage but don't *motivate* change, and they offer no positive reinforcement for self-control.
+1. **Work in phases, in order.** Each phase in Part C has tasks, acceptance checks and a commit message. Don't start a phase until the previous phase's checks pass.
+2. **Check what already exists first.** The repo `techbreak/` may already contain a scaffold (see "Current state" below). Never regenerate or overwrite working code. Read it, verify it, and build on it.
+3. **Verify, don't assume.** After every phase run:
+   - Server: `cd techbreak/server && npm run typecheck && npm test`
+   - App: `cd techbreak/app && flutter analyze && flutter test`
 
-**Solution.** TechBreak rewards users with tokens for staying focused, taking mindful breaks and hitting goals. Tokens are spent on avatar customization, rewards, or donations to causes. Leaderboards and challenges add social motivation.
+   Fix every error before moving on. Lint *infos* in Flutter may stay; errors and warnings may not.
+4. **Commit after each phase** on `main` with the message given in the phase, ending with the Co-Authored-By line. Never commit `.env`, `server/.data/`, `node_modules/` or build output.
+5. **Token rules are the core of the product.** Change values only in `server/src/modules/tokens/engine.ts`, and update `server/tests/engine.test.ts` in the same commit.
+6. **The server is the source of truth.** The app never computes token awards. It calls the API and shows what comes back.
+7. **Keep scope to this file.** If something isn't listed here, don't build it. Note ideas under "Backlog" at the end instead.
+8. **Primary target is Flutter Web** (fastest to verify in one day). Android must build; iOS is optional.
+9. **When blocked on something only the human can do** (accounts, API keys, installing Flutter), stop and ask. Don't fake it or skip it silently.
+10. **Update this file's Status columns** (`⬜` → `✅`) as tasks finish, so a fresh session can resume.
 
-**Objectives**
-1. Reduce distraction — minimize excessive screen time across devices.
-2. Foster self-regulation — positive reinforcement for proactive self-control.
-3. Build healthy habits — consistency through gamification (streaks, levels).
-4. Grow a community — challenges and leaderboards toward a balanced digital life.
+### Things only the human can do
 
-**Success metrics** (measure during beta)
-| Metric | Target |
+| Item | Needed for | When |
+|---|---|---|
+| Install Flutter (stable) and Chrome; `flutter doctor` passes for web | Phase 4+ | Before starting |
+| Google OAuth client ID | Phase 6 (optional) | Only if doing Google Sign-In |
+| MongoDB Atlas + Render (or Railway) + Firebase accounts | Phase 7 (optional) | Only if deploying |
+| GitHub repo URL | Pushing / CI | Optional |
+
+---
+
+## Part B — Product Spec
+
+### B1. Summary
+
+**Problem.** Excessive screen time hurts productivity, mental well-being and real-life engagement. Existing apps *monitor* usage but don't *motivate* change, and they give no positive reinforcement for self-control.
+
+**Solution.** Users earn tokens for focus sessions, mindful breaks and daily goals. Tokens are spent on avatar items, perks or donation pledges. Streaks, challenges and leaderboards add motivation.
+
+**Objectives.** Reduce distraction · foster self-regulation · build healthy habits · grow a community.
+
+### B2. Scope for the 1-day build
+
+**Must have**
+- Email sign-up / login with refresh tokens
+- Onboarding (3 slides + choose daily goal)
+- Dashboard: token balance, streak, level, daily goal ring, start-focus button, joined challenges, screen-time entry
+- Focus Mode: 25/45/60-minute timer; leaving the app counts as an interruption
+- Mindful Breaks: breathing, eye rest, stretch, walk
+- Token Engine: earn rules, clean bonus, daily cap, streaks + freezes, levels, ledger
+- Rewards Hub: avatar items (buy + equip), streak freeze perk, donation pledges
+- Challenges (join, progress, claim) and weekly leaderboard (friends + global)
+- Friends by invite code
+- Insights: weekly focus chart + token history
+- Local time zone used for daily goals and streaks
+
+**Stretch (only after Must-have is done and verified)**
+- Google Sign-In
+- Web push notifications (FCM)
+- Deployment (API + DB + Flutter web)
+
+**Out of scope**
+- Real-money token purchases, crypto tokens
+- Automatic screen-time reading (Android UsageStats / iOS Screen Time). Screen time is entered manually.
+- App blocking, groups/teams, admin panel, real donation-partner payments
+
+### B3. Tech stack
+
+| Layer | Choice |
 |---|---|
-| Avg. daily focus minutes per active user | ↑ week over week |
-| Daily screen time (self-reported / device data) | ↓ 15–20% after 4 weeks |
-| 7-day streak retention | ≥ 30% of users |
-| D7 / D30 retention | ≥ 40% / ≥ 20% |
-| Productivity self-score (survey, 1–10) | Deck goal: "2.5x productivity gain" — validate via pre/post survey |
+| App | Flutter 3.29+ (Dart 3.7+): flutter_riverpod 2, go_router 14, dio 5, flutter_secure_storage 9, fl_chart, flutter_timezone, shared_preferences |
+| API | Node.js 20+, Express 5, TypeScript 5 (**not** 7: ts-jest and ts-node need v5), Zod 3 |
+| Database | MongoDB 7+ via Mongoose 8. **Must be a replica set** (token writes use transactions) |
+| Local DB | `npm run db`: a single-node replica set via mongodb-memory-server, data in `server/.data/`. Docker alternative: `docker compose up -d` |
+| Auth | bcryptjs, JWT access token (15 min) + rotating refresh token (30 days, stored hashed) |
+| Jobs | node-cron, hourly |
+| Push | firebase-admin (logs a dry-run when not configured) |
+| Tests | Jest + ts-jest + supertest + mongodb-memory-server; flutter_test |
+| CI | GitHub Actions (`.github/workflows/ci.yml`) |
 
----
-
-## 2. Scope
-
-### MVP (must have by Week 14)
-- Sign up / login (email + Google OAuth)
-- **Dashboard**: today's focus goal, token balance, streak, quick-start focus button
-- **Focus Mode**: timer-based sessions (Pomodoro-style presets + custom), earn tokens on completion
-- **Mindful Breaks**: guided break prompts (breathing, stretch, walk, eye rest) after focus sessions
-- **Goals**: daily focus goal + daily screen-time limit
-- **Token Engine**: earn rules, streaks, bonuses, burn (spend) rules, ledger
-- **Rewards Hub**: avatar items store + donation pledges
-- **Leaderboards** (weekly, friends + global) and **Challenges** (e.g., "5 focus hours this week")
-- Push notifications (break reminders, streak at risk, challenge updates)
-- Basic analytics/history (weekly focus chart, token history)
-
-### Post-MVP (nice to have)
-- Android usage-stats integration (real screen-time tracking per app)
-- Groups / teams (classrooms, workplaces)
-- Real donation partner integration
-- App blocking during Focus Mode (Android)
-- Admin web panel for rewards, challenges and moderation
-
-### Out of scope
-- Real-money purchase of tokens (keeps economy fair; avoids pay-to-win)
-- Cryptocurrency / blockchain tokens
-
----
-
-## 3. Tech Stack
-
-| Layer | Choice (from deck) | Notes |
-|---|---|---|
-| Frontend | **Flutter** (Web + Android + iOS) | Single codebase. State: Riverpod (or Bloc). HTTP: Dio. Charts: fl_chart. |
-| Backend | **Node.js + Express** | TypeScript recommended. Validation: Zod. Auth: JWT (access + refresh). |
-| Database | **MongoDB** | Mongoose ODM. Use transactions (replica set / Atlas) for token operations. |
-| Token Engine | Custom module inside backend | Pure, testable rule functions + append-only ledger. |
-| Push | Firebase Cloud Messaging (FCM) | Works for Android, iOS, Web. |
-| Analytics | Firebase Analytics or PostHog | Funnel + retention tracking. |
-| OAuth | Google Sign-In | Apple Sign-In required if shipping to iOS App Store with Google login. |
-| Jobs / scheduling | node-cron or Agenda (Mongo-backed) | Streak resets, weekly leaderboard rollover, reminders. |
-| Hosting | Render / Railway / Fly.io (API), MongoDB Atlas (DB), Firebase Hosting (Flutter web) | Free/cheap tiers work for capstone. |
-| CI | GitHub Actions | Lint, test, build on every PR. |
-
----
-
-## 4. System Architecture
-
-```
-┌────────────────────────── Flutter App (Web / Android / iOS) ──────────────────────────┐
-│  Dashboard │ Focus Mode │ Breaks │ Goals │ Rewards Hub │ Leaderboard │ Profile/Avatar │
-│            State (Riverpod) · API client (Dio) · Local cache (Hive) · FCM client      │
-└───────────────────────────────────────┬───────────────────────────────────────────────┘
-                                        │ HTTPS / JSON (JWT)
-┌───────────────────────────────────────▼───────────────────────────────────────────────┐
-│                           Node.js / Express API (REST, /api/v1)                       │
-│  Auth Service │ Task/Session Service │ Goal Service │ Reward Service │ Social Service │
-│                                   │                                                    │
-│                         ┌─────────▼──────────┐       ┌──────────────────┐             │
-│                         │    Token Engine     │       │  Scheduled Jobs  │             │
-│                         │ earn · streak ·     │◄──────│ streaks, weekly  │             │
-│                         │ bonus · burn ·      │       │ rollover, nudges │             │
-│                         │ anti-abuse caps     │       └──────────────────┘             │
-│                         └─────────┬──────────┘                                         │
-└───────────────────────────────────┼───────────────────────────────────────────────────┘
-                                    │
-          ┌─────────────────────────┼──────────────────────────┐
-          ▼                         ▼                          ▼
-     MongoDB Atlas          Firebase (FCM, Analytics)     Google OAuth
-```
-
-### System Modules (from deck)
-| Component | Sub-modules | Responsibilities |
-|---|---|---|
-| Frontend | UI/UX, State, API Integration | Dashboard, Focus Mode, Rewards Store |
-| Backend API | Auth, Token, Task, Reward | Service orchestration and business logic |
-| Token Engine | Earn Rules, Rewards Logic | Streaks, bonuses, token burn |
-| External Services | Push, Analytics, OAuth | Notifications and third-party integrations |
-
----
-
-## 5. Repository Structure
-
-Monorepo:
+### B4. Repository layout
 
 ```
 techbreak/
-├── app/                        # Flutter client
+├── server/
+│   ├── src/
+│   │   ├── app.ts, server.ts
+│   │   ├── config/env.ts
+│   │   ├── middleware/   auth.ts, errors.ts
+│   │   ├── utils/date.ts
+│   │   ├── integrations/push.ts
+│   │   ├── jobs/index.ts
+│   │   └── modules/
+│   │       ├── auth/  users/  sessions/  goals/
+│   │       ├── tokens/   engine.ts (pure rules), ledger.ts, transaction.model.ts
+│   │       ├── rewards/  challenges/  social/
+│   ├── seed/seed.ts
+│   ├── scripts/dev-db.ts
+│   └── tests/  engine.test.ts, api.test.ts
+├── app/
 │   ├── lib/
 │   │   ├── main.dart
-│   │   ├── core/               # theme, router (go_router), constants, api client
-│   │   ├── features/
-│   │   │   ├── auth/
-│   │   │   ├── dashboard/
-│   │   │   ├── focus/          # timer, session lifecycle, break prompts
-│   │   │   ├── goals/
-│   │   │   ├── rewards/        # store, inventory, donations
-│   │   │   ├── social/         # leaderboard, challenges, friends
-│   │   │   └── profile/        # avatar, settings, history
-│   │   └── shared/             # widgets, models
+│   │   ├── core/      api_client, config, router, theme, token_store
+│   │   ├── shared/    models, widgets, home_shell
+│   │   └── features/  auth, onboarding, dashboard, focus, rewards, social, insights, profile
 │   └── test/
-├── server/                     # Node.js / Express API
-│   ├── src/
-│   │   ├── app.ts / server.ts
-│   │   ├── config/
-│   │   ├── middleware/         # auth, validation, rate limit, errors
-│   │   ├── modules/
-│   │   │   ├── auth/           # routes, controller, service, model
-│   │   │   ├── users/
-│   │   │   ├── sessions/       # focus + break sessions
-│   │   │   ├── goals/
-│   │   │   ├── tokens/         # token engine + ledger
-│   │   │   ├── rewards/
-│   │   │   ├── challenges/
-│   │   │   └── leaderboard/
-│   │   ├── jobs/               # cron jobs
-│   │   └── integrations/       # fcm, analytics, oauth
-│   ├── tests/
-│   └── seed/                   # rewards catalog, sample challenges, test users
-├── docs/                       # this blueprint, API spec (OpenAPI), diagrams
-└── .github/workflows/
+├── docs/blueprint.md
+├── docker-compose.yml
+└── .github/workflows/ci.yml
 ```
 
----
+### B5. Data model (MongoDB collections)
 
-## 6. Data Model (MongoDB)
+| Collection | Key fields |
+|---|---|
+| `users` | email (unique), passwordHash, authProvider, displayName, avatar {base, equipped: Map slot→rewardId}, timezone (IANA), tokenBalance, xp, level, streak {current, longest, lastActiveDate, freezes}, settings {dailyFocusGoalMin=120, dailyScreenLimitMin=240, breakReminders}, inviteCode (unique), friends[], fcmTokens[], lastRolloverDate |
+| `sessions` | userId, type focus\|break, breakKind, afterSessionId, plannedMin, actualMin, status active\|completed\|abandoned, interruptions, startedAt, endedAt, platform, tokensAwarded, awards[] |
+| `goals` | userId + date (unique), focusTargetMin, focusDoneMin, screenLimitMin, screenUsedMin, achieved, screenBonusAwarded |
+| `token_transactions` | userId, amount (+/−), type earn\|burn, reason, refId, day (user-local YYYY-MM-DD), balanceAfter. Append-only |
+| `rewards` | slug (unique), kind avatar_item\|perk\|donation, name, description, slot hat\|outfit\|background, cost, cause, active |
+| `inventory` | userId + rewardId (unique), acquiredAt |
+| `donations` | userId, rewardId, cause, tokens, status, pledgedAt |
+| `challenges` | title (unique), metric focus_minutes\|breaks\|streak_days, target, startsAt, endsAt, rewardTokens |
+| `challenge_progress` | challengeId + userId (unique), progress, completed, claimedAt |
+| `refresh_tokens` | userId, tokenHash (unique), expiresAt (TTL index) |
 
-```js
-// users
-{
-  _id, email, passwordHash?, authProvider: "local" | "google",
-  displayName, avatar: { base: "fox", equipped: { hat, outfit, background } },
-  timezone: "Asia/Kolkata",
-  tokenBalance: 0,             // cached; ledger is source of truth
-  level: 1, xp: 0,
-  streak: { current: 0, longest: 0, lastActiveDate: "2026-10-28" },
-  settings: { dailyFocusGoalMin: 120, dailyScreenLimitMin: 240, breakReminders: true },
-  friends: [userId], fcmTokens: [String],
-  createdAt, updatedAt
-}
+### B6. Token Engine rules
 
-// sessions  (focus & break sessions)
-{
-  _id, userId, type: "focus" | "break",
-  breakKind?: "breathing" | "stretch" | "walk" | "eye_rest",
-  plannedMin: 25, actualMin: 25,
-  status: "active" | "completed" | "abandoned",
-  interruptions: 0,            // app backgrounded / tab hidden events
-  startedAt, endedAt, deviceId, platform: "web" | "android" | "ios"
-}
-
-// goals
-{ _id, userId, date: "2026-10-28", focusTargetMin, focusDoneMin,
-  screenLimitMin, screenUsedMin?, achieved: false }
-
-// token_transactions  (append-only ledger)
-{
-  _id, userId, amount: +10 | -50,
-  type: "earn" | "burn",
-  reason: "focus_complete" | "break_complete" | "goal_achieved" | "streak_bonus"
-        | "challenge_reward" | "reward_redeem" | "donation",
-  refId,                       // sessionId / rewardId / challengeId
-  balanceAfter, createdAt
-}
-
-// rewards  (catalog)
-{ _id, kind: "avatar_item" | "donation" | "perk", name, slot?, cost,
-  imageUrl, cause?, active: true, stock? }
-
-// inventory
-{ _id, userId, rewardId, acquiredAt }
-
-// donations
-{ _id, userId, cause, tokens, pledgedAt, status: "pledged" | "fulfilled" }
-
-// challenges
-{ _id, title, description, metric: "focus_minutes" | "breaks" | "streak_days",
-  target, startsAt, endsAt, rewardTokens, scope: "global" | "friends" | "group" }
-
-// challenge_progress
-{ _id, challengeId, userId, progress, completed, claimedAt? }
-
-// leaderboard_snapshots  (weekly)
-{ _id, weekStart, entries: [{ userId, focusMin, tokensEarned, rank }] }
-```
-
-**Indexes:** `sessions(userId, startedAt)`, `token_transactions(userId, createdAt)`, `goals(userId, date)` unique, `challenge_progress(challengeId, userId)` unique, `users(email)` unique.
-
----
-
-## 7. Token Engine
-
-The heart of the product. Implement as pure functions (`computeEarn(session, user, todayStats) → TokenTx[]`) so rules are unit-testable, then apply them in a MongoDB transaction that writes ledger rows and updates `tokenBalance`.
-
-### 7.1 Earn rules (starting values — tune in beta)
 | Trigger | Tokens | Condition |
 |---|---|---|
-| Focus session completed | **1 per focused minute** (25-min = 25) | ≥ 10 min, status `completed`, ≤ 2 interruptions |
-| Clean session bonus | +20% | 0 interruptions |
-| Mindful break completed | +5 | Break taken within 10 min after focus session |
-| Daily focus goal hit | +30 | Once per day |
-| Stayed under screen limit | +20 | Once per day (when screen data available) |
-| Streak bonus | +5 × streak day (cap +50) | Awarded on first goal of the day |
-| Challenge completed | challenge.rewardTokens | Once per challenge |
-| Level-up | +50 | XP threshold crossed |
+| Focus session completed | 1 per minute | ≥ 10 min, ≤ 2 interruptions; minutes come from **server timestamps** only |
+| Clean bonus | +20% of focus tokens | 0 interruptions |
+| Mindful break | +5 | ≥ 1 min, started ≤ 10 min after a completed focus session, once per focus session |
+| Daily focus goal reached | +30 | Once per day |
+| Streak bonus | +5 × streak days, max 50 | When the daily goal is reached |
+| Stayed under screen limit | +20 | Paid by the hourly job for the previous day |
+| Challenge completed | challenge.rewardTokens | When claimed |
+| Level up | +50 per level | XP to reach level L = Σ round(100 × k^1.5) for k < L. Level-up tokens don't add XP |
 
-### 7.2 Burn rules (sinks)
-| Action | Cost |
+| Spend | Cost |
 |---|---|
-| Avatar items | 50–500 by rarity |
-| Donation pledge | 100+ (e.g., 100 tokens = "plant a tree" pledge) |
-| Streak freeze (protect streak one day) | 150, max 2 held |
-| Abandoned focus session | 0 tokens earned (no penalty — keep it positive) |
+| Avatar items | 50–500 |
+| Streak freeze | 150 (hold at most 2) |
+| Donation pledge | 100–300 |
 
-### 7.3 Streaks
-- A day "counts" if the user completes ≥ 1 focus session **and** hits the daily focus goal.
-- Nightly job (per user timezone) checks yesterday; if missed and no freeze → `streak.current = 0`.
+**Guards:** daily cap of 400 tokens on focus + clean + break rewards (milestones aren't capped) · max 120 min per session · max 480 focus min credited per day · completing a session is idempotent · balance can never go negative · one active session per user (starting a new one abandons the old one).
 
-### 7.4 Levels / XP
-- XP = lifetime tokens earned (not spent). Level thresholds: `100 × level^1.5`.
+**Streaks:** a day counts when the daily goal is reached. The hourly job runs each user's rollover once per local day: if yesterday was missed, it spends a freeze (only when exactly one day was missed), otherwise it resets the streak to 0.
 
-### 7.5 Anti-abuse guards
-- **Daily earn cap** (e.g., 400 tokens/day) to stop timer farming.
-- Max focus session length 120 min; max 8 hours focus credited per day.
-- Server validates `startedAt`/`endedAt` against server time — client can't submit arbitrary durations. Session must be started via API and completed via API.
-- Interruption tracking: Flutter `AppLifecycleState` (mobile) and `visibilitychange` (web) report backgrounding.
-- Idempotency key on completion endpoint to avoid double-awards.
-- Balance can never go negative (check inside transaction).
+### B7. REST API (`/api/v1`, JSON, Bearer auth except `/auth/*`)
 
----
-
-## 8. REST API (v1)
-
-All routes under `/api/v1`, JSON, JWT bearer auth except auth endpoints.
-
-**Auth**
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/auth/register` | Email signup |
-| POST | `/auth/login` | Email login → access + refresh tokens |
-| POST | `/auth/google` | Exchange Google ID token |
-| POST | `/auth/refresh` | Rotate tokens |
-| POST | `/auth/logout` | Revoke refresh token |
+| POST | `/auth/register` `{email,password,displayName,timezone?}` | → `{accessToken, refreshToken, user}` |
+| POST | `/auth/login`, `/auth/google` `{idToken}` | Same response |
+| POST | `/auth/refresh`, `/auth/logout` `{refreshToken}` | Rotate / revoke |
+| GET / PATCH | `/me` | Profile; PATCH accepts displayName, timezone, settings.* |
+| GET | `/me/dashboard` | `{user, goal, challenges[{challenge, progress}]}` |
+| PUT | `/me/avatar` `{slot, rewardId\|null}` | Equip an owned item |
+| POST | `/me/devices` `{fcmToken}` | Register for push |
+| POST | `/sessions` | Focus `{type:'focus', plannedMin, platform}` or break `{type:'break', breakKind, plannedMin, afterSessionId?}` |
+| PATCH | `/sessions/:id/interrupt` | +1 interruption |
+| POST | `/sessions/:id/complete` | → `{session, awards[], alreadyCompleted}` |
+| POST | `/sessions/:id/abandon` | No tokens |
+| GET | `/sessions?from&to&limit` | History |
+| GET / PUT | `/goals/today` | Today's goal / change targets |
+| POST | `/goals/today/screen-time` `{minutes}` | Manual screen-time entry |
+| GET | `/tokens/balance`, `/tokens/transactions?before&limit` | Balance and ledger (cursor paging) |
+| GET | `/rewards?kind`, `/inventory`, `/donations` | Catalog, owned items, pledges |
+| POST | `/rewards/:id/redeem` | Buy item / perk / pledge → `{user}`; 402 if not enough tokens, 409 if already owned |
+| GET | `/challenges` | Active challenges with my progress (null = not joined) |
+| POST | `/challenges/:id/join`, `/challenges/:id/claim` | Join / claim |
+| GET / POST | `/friends` `{inviteCode}` | List / add (mutual) |
+| GET | `/leaderboard?scope=global\|friends` | This week's focus minutes ranking |
 
-**User / Dashboard**
-| GET | `/me` | Profile, balance, streak, level |
-|---|---|---|
-| PATCH | `/me` | Update name, settings, timezone |
-| GET | `/me/dashboard` | Today's goal progress, balance, streak, active challenges |
-| POST | `/me/devices` | Register FCM token |
+Errors are `{error: string}` with status 400/401/402/403/404/409/500.
 
-**Sessions (Focus Mode & Breaks)**
-| POST | `/sessions` | Start focus/break session `{type, plannedMin}` |
-|---|---|---|
-| PATCH | `/sessions/:id/interrupt` | Report interruption |
-| POST | `/sessions/:id/complete` | Complete → returns tokens awarded |
-| POST | `/sessions/:id/abandon` | Abandon |
-| GET | `/sessions?from&to` | History |
+### B8. Screens
 
-**Goals**
-| GET | `/goals/today` | Today's goal + progress |
-|---|---|---|
-| PUT | `/goals/today` | Set targets |
-| POST | `/goals/today/screen-time` | Report screen-time minutes (manual or device) |
-
-**Tokens**
-| GET | `/tokens/balance` | Balance |
-|---|---|---|
-| GET | `/tokens/transactions?cursor` | Ledger history |
-
-**Rewards Hub**
-| GET | `/rewards?kind` | Catalog |
-|---|---|---|
-| POST | `/rewards/:id/redeem` | Spend tokens |
-| GET | `/inventory` | Owned items |
-| PUT | `/me/avatar` | Equip items |
-| POST | `/donations` | Pledge tokens to a cause |
-
-**Social**
-| GET | `/leaderboard?scope=global\|friends&period=week` | Rankings |
-|---|---|---|
-| GET | `/challenges` | Active challenges + my progress |
-| POST | `/challenges/:id/join` | Join |
-| POST | `/challenges/:id/claim` | Claim reward |
-| POST | `/friends/:userId` | Add friend (via invite code) |
-
-Document everything in `docs/openapi.yaml`; generate the Flutter client models from it if desired.
-
----
-
-## 9. Screens (Flutter)
-
-| # | Screen | Key elements |
-|---|---|---|
-| 1 | Onboarding | 3 slides explaining tokens, breaks, rewards; set daily goal |
-| 2 | Login / Signup | Email, Google |
-| 3 | **Dashboard** | Token balance, goal progress ring, streak flame, "Start Focus" CTA, active challenge card |
-| 4 | **Focus Mode** | Large timer, presets (25/45/60), calm visuals, "tokens earning" counter, end/abandon |
-| 5 | Session Complete | Tokens earned animation, bonus breakdown, "Take a mindful break" CTA |
-| 6 | **Mindful Break** | Guided breathing animation / stretch cards / eye-rest 20-20-20 timer |
-| 7 | **Rewards Hub** | Tabs: Avatar Store, Donations, Inventory; price tags in tokens |
-| 8 | Avatar Editor | Equip owned items, preview |
-| 9 | **Leaderboard & Challenges** | Weekly rank, friends tab, challenge progress bars |
-| 10 | Insights | Weekly focus chart, screen-time trend, token history |
-| 11 | Profile & Settings | Goals, reminders, notification prefs, logout |
-
-**Design direction:** clean, calm, low-stimulation UI (the app shouldn't itself be a distraction). Soft palette, generous whitespace, light/dark themes, satisfying but brief reward animations (Lottie / Rive).
-
----
-
-## 10. Notifications (FCM)
-
-| Trigger | Message |
+| Screen | Contents |
 |---|---|
-| 50 min continuous app use reported / long session | "Time for a mindful break? +5 tokens" |
-| 8 PM, goal not met | "30 more focus minutes keeps your 6-day streak alive 🔥" |
-| Challenge ends in 24 h | "You're 80% through 'Focus Five' — finish strong" |
-| Weekly rollover | "You ranked #4 among friends this week" |
+| Onboarding | 3 slides (earn tokens · take breaks · spend rewards) + daily-goal slider. Shown once (shared_preferences flag) |
+| Login / Sign-up | Email, password, display name |
+| Dashboard | Tokens · streak · level tiles; goal ring; "Start focus session"; screen-time card; joined challenges |
+| Focus Mode | Preset picker → countdown → result with award breakdown → "Take a mindful break (+5)" |
+| Mindful Break | Pick a kind → breathing circle + countdown → award |
+| Rewards Hub | Tabs: Avatar / Perks / Donate; buy, equip; balance in app bar |
+| Challenges & Leaderboard | Tabs: Challenges (join/claim) · Friends · Global |
+| Insights | Bar chart of focus minutes for the last 7 days; token history list |
+| Profile | Avatar with equipped items, level/XP, streak and freezes, daily goal, invite code, add friend, Insights link, sign out |
 
-Respect quiet hours and let users mute categories.
+Design: calm and low-stimulation, Material 3, teal seed color, light and dark themes, short reward animations only.
 
 ---
 
-## 11. Screen-Time Tracking Strategy
+## Part C — Build Plan (one day)
 
-Platform limits matter — plan for it explicitly:
-| Platform | Approach |
+### Current state of the repo
+
+A scaffold already exists and is committed in `techbreak/` (2 commits on `main`). **Verify it in Phase 0, then continue from Phase 4.**
+
+| Area | Status |
 |---|---|
-| Web | In-app focus sessions only; `visibilitychange` for interruptions. Screen time entered manually. |
-| Android | MVP: manual entry. Post-MVP: `UsageStatsManager` via a platform channel (requires *Usage Access* permission). |
-| iOS | Screen Time API (FamilyControls / DeviceActivity) needs special entitlement — treat as post-MVP; manual entry for MVP. |
+| Server: everything in B5–B7, seed, hourly job, push dry-run | ✅ built — 20 tests passing |
+| `npm run db` local replica set | ✅ |
+| Flutter: login, dashboard, focus, break, rewards, challenges/leaderboard, profile | ✅ code written, **never compiled** (Flutter wasn't installed) |
+| Flutter platform folders (`web/`, `android/`, `ios/`) | ⬜ not generated |
+| Onboarding, Insights, screen-time card, time zone, avatar display | ⬜ |
+| Google Sign-In, push in the app, deployment | ⬜ stretch |
 
-The economy is built around **focus sessions** (fully measurable in-app), with screen-time as a secondary signal — this keeps the MVP achievable on every platform.
-
----
-
-## 12. Security & Privacy
-- Passwords hashed with bcrypt/argon2; JWT access (15 min) + rotating refresh (30 days, stored hashed).
-- Helmet, CORS allow-list, rate limiting (`express-rate-limit`) on auth and session endpoints.
-- Input validation on every route (Zod).
-- Collect minimal data; screen-time data stays aggregated per day. Provide account deletion and data export.
-- Secrets in environment variables; `.env.example` committed, `.env` git-ignored.
+If `techbreak/` does **not** exist, do Phases 1–3 first to build the server from Part B, then continue.
 
 ---
 
-## 13. Testing Plan
-| Level | What | Tools |
+### Phase 0 — Environment check (≈ 20 min)
+
+| # | Task | Status |
 |---|---|---|
-| Unit | Token engine rules, streak logic, level math | Jest (server) |
-| Integration | API routes with in-memory Mongo | Supertest + mongodb-memory-server |
-| Widget | Key Flutter screens | flutter_test |
-| E2E | Signup → focus → earn → redeem flow | Flutter integration_test |
-| Beta | 15–30 real users, 2 weeks | Pre/post survey, analytics funnels |
+| 0.1 | Check `node -v` (≥ 20), `git --version`, `flutter --version` (Dart ≥ 3.7), `flutter doctor` (Chrome available). If Flutter is missing, **stop and ask the human to install it.** | ⬜ |
+| 0.2 | `cd techbreak/server && npm install && cp -n .env.example .env` | ⬜ |
+| 0.3 | `npm run typecheck && npm test` all green | ⬜ |
+| 0.4 | Start the DB (`npm run db`, in the background), run `npm run seed`, start the API (`npm run dev`). Check `GET /health` → `{ok:true}` and that logging in as `demo@techbreak.test` / `techbreak-demo` returns tokens | ⬜ |
 
-Critical test cases: double-complete a session (must award once), complete with forged duration (must reject), redeem with insufficient balance, streak reset across time zones, daily cap reached.
+**Checks:** all of the above succeed. No commit needed unless something was fixed (`chore: fix environment setup`).
 
 ---
 
-## 14. Development Roadmap (14 weeks — from deck)
+### Phases 1–3 — Server (≈ 3 h; skip if "Current state" says built)
 
-| Phase | Weeks | Deliverables |
+Only for a fresh start. Build in this order, with tests per step:
+
+1. **Foundation:** Express app, env config, error handler, JWT auth middleware, User model, auth routes (register/login/refresh/logout with refresh rotation), `/me`. Commit `feat(server): foundation and auth`.
+2. **Token Engine + sessions:** `engine.ts` (pure functions for every rule in B6) with unit tests first; ledger (`grant`, `spend`, `cappedEarnedToday`) inside Mongo transactions; sessions start/interrupt/complete/abandon; goals; dashboard. Commit `feat(server): token engine, sessions and goals`.
+3. **Economy + social:** rewards/inventory/donations/redeem/equip; challenges join/progress/claim; friends; leaderboard aggregation; hourly job; push dry-run; seed script; `npm run db`. Commit `feat(server): rewards, challenges, social and jobs`.
+
+**Checks:** the API test covers register → focus (backdate `startedAt`) → complete (awards 25+5+30+5 with a 20-minute goal) → completing again returns `alreadyCompleted` → break +5 → redeem 50 → 402 on an unaffordable item → the ledger sum equals `tokenBalance`.
+
+---
+
+### Phase 4 — Make the Flutter app build and run (≈ 1.5 h)
+
+| # | Task | Status |
 |---|---|---|
-| **1. Research — Problem Analysis** | 1–2 | User survey (screen-time habits), competitor review (Forest, Opal, Freedom, Digital Wellbeing), personas, final feature list, success metrics |
-| **2. Architecture — System Design** | 3–4 | This blueprint finalized, Figma wireframes + UI kit, OpenAPI spec, DB schema, repo + CI setup, deploy "hello world" for API and Flutter web |
-| **3. Development — Core Modules** | 5–8 | W5: Auth (email + Google), user profile. W6: Dashboard + Goals. W7: Focus Mode + session API + interruption tracking. W8: Mindful Breaks, history/insights, FCM setup |
-| **4. Economy — Token System** | 9–11 | W9: Token engine + ledger + earn rules + tests. W10: Rewards Hub, avatar editor, donations, streaks + jobs. W11: Leaderboards, challenges, anti-abuse caps, balance tuning |
-| **5. Beta Test — Feedback Loop** | 12–13 | Release to testers (Firebase App Distribution / web link), collect analytics + surveys, fix bugs, tune token values |
-| **6. Launch — Deployment** | 14 | Production deploy (API, DB, web), Play Store internal/closed track, final demo, report & presentation |
+| 4.1 | `cd techbreak/app && flutter create . --platforms=web,android,ios --project-name techbreak` (keeps the existing `lib/`, `test/` and `pubspec.yaml`; if `pubspec.yaml` gets overwritten, restore it from git) | ⬜ |
+| 4.2 | `flutter pub get`, then `flutter analyze` and fix every **error and warning**. Likely spots: Riverpod 2 / go_router 14 API differences, `CardThemeData`, `withValues`, `PopScope.onPopInvokedWithResult` | ⬜ |
+| 4.3 | `flutter test` passes | ⬜ |
+| 4.4 | Add a preview configuration so the app can be opened in the browser pane: `flutter run -d web-server --web-port 8080` (or `flutter build web` served statically). Make sure the server's `CORS_ORIGINS` allows it (default `*`) | ⬜ |
+| 4.5 | **Manual flow in the browser:** sign up → dashboard → start a 25-min focus → "Finish early" (no tokens under 10 min, which is expected) → abandon flow works → Rewards tabs load the seeded items → Challenges list 3 items → Profile shows the invite code → sign out returns to login | ⬜ |
 
-### Suggested team split (adjust to team size)
-- **Frontend (1–2):** Flutter screens, state, animations
-- **Backend (1–2):** Express API, auth, sessions, jobs
-- **Token/Economy owner (1):** engine rules, balancing, tests
-- **PM/QA/Design (1):** wireframes, beta program, docs, metrics
+To test earning without waiting 25 minutes, backdate the active session in Mongo (`startedAt` = now − 26 min) and press "Finish early". Or add a dev-only server env flag `DEV_FAST_MINUTES=1` that treats 1 second as 1 minute, guarded by `NODE_ENV !== 'production'`, with a test.
+
+**Checks:** `flutter analyze` has no errors or warnings · `flutter test` green · the flow in 4.5 works with no console errors.
+**Commit:** `feat(app): generate platforms and fix build`
 
 ---
 
-## 15. Getting Started (Week 3 checklist)
+### Phase 5 — Finish the Must-have features (≈ 3 h)
 
-1. Create GitHub repo with the structure in §5; add branch protection and PR template.
-2. **Server**
-   ```bash
-   mkdir server && cd server && npm init -y
-   npm i express mongoose zod jsonwebtoken bcrypt helmet cors express-rate-limit dotenv node-cron firebase-admin google-auth-library
-   npm i -D typescript ts-node-dev @types/express @types/node jest ts-jest supertest mongodb-memory-server
-   ```
-3. **App**
-   ```bash
-   flutter create app --platforms=web,android,ios
-   ```
-   Then add packages: `flutter_riverpod`, `go_router`, `dio`, `hive_flutter`, `fl_chart`, `firebase_core`, `firebase_messaging`, `google_sign_in`, `lottie`.
-4. Create MongoDB Atlas free cluster (replica set → transactions work) and a Firebase project.
-5. Add `.env.example`: `MONGO_URI`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `GOOGLE_CLIENT_ID`, `FIREBASE_SERVICE_ACCOUNT`, `DAILY_EARN_CAP`.
-6. Seed rewards catalog and 3 sample challenges (`server/seed/`).
-7. GitHub Actions: `npm test` + `flutter analyze && flutter test` on PRs.
+| # | Task | Details | Status |
+|---|---|---|---|
+| 5.1 | Local time zone | Add `flutter_timezone`; send the IANA zone on register; on app start, if `user.timezone` differs from the device, `PATCH /me {timezone}`. Remove the TODO in `auth_controller.dart` | ⬜ |
+| 5.2 | Onboarding | `features/onboarding/onboarding_screen.dart`: 3 PageView slides + goal slider (10–300 min, steps of 10). Runs after first sign-up and sets `settings.dailyFocusGoalMin` via `PATCH /me` and today's goal via `PUT /goals/today`. Stores a `shared_preferences` flag; router redirect sends first-time users here | ⬜ |
+| 5.3 | Screen-time card | Dashboard card: "Screen time today" + "Log" button → number dialog → `POST /goals/today/screen-time`. Show used vs. limit and note that the +20 bonus is paid the next day | ⬜ |
+| 5.4 | Insights screen | `features/insights/insights_screen.dart`, route `/insights`, opened from Profile. Use `fl_chart` for a 7-day bar chart of completed focus minutes (from `GET /sessions?from=<7 days ago>&limit=200`, grouped by local date on the client) plus totals (minutes, sessions, tokens this week) and a paged token history list (`GET /tokens/transactions`, infinite scroll with `before` cursor) | ⬜ |
+| 5.5 | Avatar display | `shared/avatar_view.dart`: base emoji (🦊) with equipped items drawn as stacked icons/emoji per slot (hat on top, outfit badge, background color from the background item). Map reward slugs to visuals in one table. Use it in Profile and the dashboard header | ⬜ |
+| 5.6 | Polish | Pull-to-refresh on every list; empty states; snackbar errors use `apiErrorMessage`; after redeeming, the balance updates everywhere; a reward-earned animation (scale/fade on the token total, no extra packages) | ⬜ |
+| 5.7 | Tests | Widget tests for: login form validation, Award list total, Insights grouping function (pure function, unit-tested), avatar mapping | ⬜ |
+
+**Checks:** analyze clean · all tests green · the manual flow in 4.5 plus: onboarding shows once; logging screen time updates the card; Insights shows today's bar after a backdated completed session; equipping a hat changes the avatar in Profile.
+**Commit:** `feat(app): onboarding, insights, screen time, avatar, timezone`
 
 ---
 
-## 16. Definition of Done (Launch)
-- [ ] A new user can sign up, set a goal, complete a focus session, earn tokens, take a break, and redeem an avatar item — on web and Android.
-- [ ] Token ledger balances reconcile with `tokenBalance` for every user.
-- [ ] Streaks, leaderboards and challenges roll over correctly via scheduled jobs.
-- [ ] Push notifications delivered on Android and web.
-- [ ] Unit test coverage ≥ 80% on the token engine.
-- [ ] Beta feedback collected and top issues resolved.
-- [ ] API and web app deployed; README explains local setup.
+### Phase 6 — End-to-end verification (≈ 1 h)
+
+| # | Task | Status |
+|---|---|---|
+| 6.1 | Fresh DB (stop `npm run db`, delete `server/.data`, restart, seed). Run the **full journey** in the browser: sign up → onboarding (goal 20 min) → join "Focus Five" → 25-min focus session (backdate) → see 25 + 5 + 30 + 5 = **65 tokens**, streak 1, "Focus Five" at 25/300 → mindful break → +5 (**70**) → buy Cozy Beanie (50) → **20** left → equip it | ⬜ |
+| 6.2 | Second user: sign up in a private window, add the first user by invite code, check both appear on the Friends leaderboard | ⬜ |
+| 6.3 | Run the hourly job by hand (a small script or test) and confirm streak rollover and the screen-limit bonus | ⬜ |
+| 6.4 | `flutter build web --release` and `flutter build apk --debug` both succeed | ⬜ |
+| 6.5 | Update `README.md`: setup, run, demo login, what's implemented; screenshots optional | ⬜ |
+
+**Checks:** every number in 6.1 matches. **Commit:** `test: end-to-end verification and docs`
+
+---
+
+### Phase 7 — Stretch (only with time left and the human's accounts)
+
+| # | Task | Needs from human | Status |
+|---|---|---|---|
+| 7.1 | Google Sign-In on web/Android with `google_sign_in`, posting the ID token to `/auth/google` | OAuth client ID | ⬜ |
+| 7.2 | Web push with `firebase_messaging`: register the token via `POST /me/devices`; server sends with `FIREBASE_SERVICE_ACCOUNT` | Firebase project | ⬜ |
+| 7.3 | Deploy: API on Render (`render.yaml` web service, `npm ci && npm run build`, `npm start`), DB on MongoDB Atlas (replica set by default), Flutter web on Render static site or Firebase Hosting with `API_BASE_URL` set via `--dart-define`. Set production secrets; `CORS_ORIGINS` = the web URL | Render/Atlas accounts | ⬜ |
+
+Commit each as `feat: <item>`.
+
+---
+
+## Part D — Definition of Done
+
+- [ ] A new user can sign up, finish onboarding, complete a focus session, earn tokens, take a break, buy and equip an avatar item, join a challenge and see Insights, on **Flutter Web**.
+- [ ] The Android debug APK builds.
+- [ ] `npm run typecheck`, `npm test`, `flutter analyze`, `flutter test` are all clean.
+- [ ] The token ledger sum equals `tokenBalance` for every user (asserted in the API test).
+- [ ] The full journey in 6.1 produces exactly the listed numbers.
+- [ ] README explains setup in under 10 commands.
+- [ ] Every phase is committed; the Status columns in this file are updated.
+
+## Suggested timeline
+
+| Time | Phase |
+|---|---|
+| 0:00–0:20 | Phase 0: environment check |
+| 0:20–1:50 | Phase 4: Flutter build + first run |
+| 1:50–4:50 | Phase 5: remaining features |
+| 4:50–5:50 | Phase 6: end-to-end verification |
+| 5:50–8:00 | Phase 7: stretch, or buffer for fixes |
+
+(A fresh start without the scaffold adds about 3 hours for Phases 1–3.)
+
+## Backlog (not for this build)
+
+Android UsageStats screen-time tracking · app blocking during focus · groups/classrooms · admin panel for rewards and challenges · weekly leaderboard snapshots · real donation partners · iOS Screen Time API · Lottie/Rive animations · localization.
