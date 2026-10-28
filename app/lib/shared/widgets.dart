@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import 'models.dart';
+
+extension LeaveScreen on BuildContext {
+  /// Go back, or to the dashboard when this screen was opened directly (e.g. a deep link or page reload).
+  void leave() => canPop() ? pop() : go('/');
+}
 
 /// The app theme makes filled buttons full-width; dialogs and list rows need them shrink-wrapped.
 final dialogButtonStyle = FilledButton.styleFrom(minimumSize: const Size(0, 40));

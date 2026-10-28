@@ -125,7 +125,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
     } catch (_) {
       // The server also abandons stale sessions when the next one starts.
     }
-    if (mounted) context.pop();
+    if (mounted) context.leave();
   }
 
   void _snack(String message) {
@@ -191,7 +191,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
                       label: const Text('Take a mindful break (+5)'),
                       onPressed: () => context.pushReplacement('/break?after=$_sessionId'),
                     ),
-                    TextButton(onPressed: () => context.pop(), child: const Text('Back to dashboard')),
+                    TextButton(onPressed: () => context.leave(), child: const Text('Back to dashboard')),
                   ],
                 ),
             },

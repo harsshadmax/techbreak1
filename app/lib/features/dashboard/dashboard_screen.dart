@@ -47,7 +47,8 @@ class DashboardScreen extends ConsumerWidget {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              _SummaryRow(user: d.user),
+              // The shared auth user is kept current by redeems and claims; the dashboard snapshot can be stale.
+              _SummaryRow(user: ref.watch(authProvider).valueOrNull ?? d.user),
               const SizedBox(height: 16),
               _GoalCard(goal: d.goal),
               const SizedBox(height: 16),

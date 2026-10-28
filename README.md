@@ -12,12 +12,35 @@ techbreak/
 └── docs/     Blueprint and design docs
 ```
 
+## Quick start (web)
+
+Needs Node.js 20+ and Flutter (stable, Dart 3.7+). Run each block in its own terminal:
+
+```bash
+cd server && cp .env.example .env && npm install
+npm run db                # local MongoDB replica set (data in server/.data), leave running
+```
+
+```bash
+cd server
+npm run seed              # rewards catalog, this week's challenges, demo user
+npm run dev               # API on http://localhost:4000/api/v1
+```
+
+```bash
+cd app && flutter pub get
+flutter run -d web-server --web-port 8099    # then open http://localhost:8099
+```
+
+Sign in with the demo user `demo@techbreak.test` / `techbreak-demo` (`SEED_DEMO_PASSWORD` in `server/.env`), or create an account.
+
 ## Prerequisites
 
 - Node.js 20+
-- Flutter (stable, Dart 3.7+)
-- MongoDB **running as a replica set** (token operations use transactions):
-  either a free MongoDB Atlas cluster, or Docker: `docker compose up -d`
+- Flutter (stable, Dart 3.7+); Chrome or Edge for web
+- MongoDB **running as a replica set** (token operations use transactions): `npm run db`
+  (no Docker needed), `docker compose up -d`, or a free MongoDB Atlas cluster
+- Android builds also need the Android SDK (Android Studio)
 
 ## Run the API
 
@@ -38,19 +61,18 @@ npm run typecheck
 
 ## Run the app
 
-The `app/` folder holds the Dart code (`lib/`, `test/`, `pubspec.yaml`). Generate the platform folders once:
-
 ```bash
 cd app
-flutter create . --platforms=web,android,ios --project-name techbreak
 flutter pub get
-flutter run -d chrome
+flutter analyze && flutter test
+flutter run -d chrome          # or: -d web-server --web-port 8099, -d edge
+flutter build web --release
 ```
 
 Point the app at a different API with `--dart-define=API_BASE_URL=...`.
 On the Android emulator use `http://10.0.2.2:4000/api/v1`.
 
-Sign in with the seeded demo user `demo@techbreak.test` (password is `SEED_DEMO_PASSWORD` from `server/.env`) or create an account.
+To try earning tokens without waiting 25 minutes, move the active session's `startedAt` back in MongoDB, then press "Finish early".
 
 ## What's implemented
 
@@ -67,8 +89,9 @@ Sign in with the seeded demo user `demo@techbreak.test` (password is `SEED_DEMO_
 | Friends + weekly leaderboard | ✅ | ✅ |
 | Hourly job: streak rollover, screen-limit bonus, streak reminders | ✅ | — |
 | Push notifications (FCM) | ✅ (dry-run without credentials) | ⏳ TODO |
-| Screen-time entry | ✅ `/goals/today/screen-time` | ⏳ TODO |
-| Insights charts | — | ⏳ TODO |
+| Screen-time entry | ✅ `/goals/today/screen-time` | ✅ |
+| Onboarding, local time zone, avatar display | ✅ | ✅ |
+| Insights (7-day chart, token history) | ✅ | ✅ |
 
 ## API overview
 

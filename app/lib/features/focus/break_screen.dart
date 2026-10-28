@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/api_client.dart';
 import '../../shared/models.dart';
@@ -110,7 +109,7 @@ class _BreakScreenState extends ConsumerState<BreakScreen> {
           const SizedBox(height: 16),
           AwardList(_awards!),
           const SizedBox(height: 32),
-          FilledButton(onPressed: () => context.pop(), child: const Text('Back to dashboard')),
+          FilledButton(onPressed: () => context.leave(), child: const Text('Back to dashboard')),
         ],
       );
     } else if (kind == null) {
