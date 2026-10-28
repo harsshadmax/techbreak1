@@ -19,3 +19,6 @@ app/**/google-services.json
 *.iml
 .DS_Store
 Thumbs.db
+
+# Local dev database (npm run db)
+server/.data/

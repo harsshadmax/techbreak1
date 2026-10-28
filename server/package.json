@@ -8,6 +8,7 @@
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
+    "db": "ts-node --transpile-only scripts/dev-db.ts",
     "seed": "ts-node --transpile-only seed/seed.ts",
     "typecheck": "tsc -p tsconfig.check.json",
     "test": "jest --runInBand"
