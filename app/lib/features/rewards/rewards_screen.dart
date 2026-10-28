@@ -112,6 +112,7 @@ class _RewardList extends ConsumerWidget {
               : OutlinedButton(onPressed: () => _equip(context, ref, r), child: const Text('Equip'));
         } else {
           action = FilledButton.tonal(
+            style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
             onPressed: balance >= r.cost ? () => _redeem(context, ref, r) : null,
             child: TokenAmount(r.cost),
           );
