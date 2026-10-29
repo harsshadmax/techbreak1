@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/api_client.dart';
 import '../../shared/models.dart';
+import '../../shared/ui.dart';
 import '../auth/auth_controller.dart';
 
 String _flagKey(String userId) => 'onboarded_$userId';
@@ -20,9 +21,9 @@ final onboardingDoneProvider = FutureProvider<bool>((ref) async {
 });
 
 const _slides = [
-  (Icons.timer_outlined, 'Earn tokens for focus', 'Start a focus session and earn a token for every minute you stay off your phone.'),
-  (Icons.self_improvement, 'Take mindful breaks', 'Breathe, rest your eyes or stretch between sessions. Breaks earn bonus tokens too.'),
-  (Icons.emoji_events_outlined, 'Spend them on rewards', 'Dress up your avatar, protect your streak or pledge tokens to a good cause.'),
+  (FaceShape.circle, FaceMood.calm, Palette.green, 'Earn tokens for focus', 'Start a focus session and earn a token for every minute you stay off your phone.'),
+  (FaceShape.blob, FaceMood.sleepy, Palette.blue, 'Take mindful breaks', 'Breathe, rest your eyes or stretch between sessions. Breaks earn bonus tokens too.'),
+  (FaceShape.bolt, FaceMood.happy, Palette.yellow, 'Unlock your apps', 'Spend tokens on timed access to Instagram, YouTube and more, guilt free.'),
 ];
 
 class OnboardingScreen extends ConsumerStatefulWidget {
@@ -83,14 +84,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 controller: _pages,
                 onPageChanged: (i) => setState(() => _page = i),
                 children: [
-                  for (final (icon, title, body) in _slides)
+                  for (final (shape, mood, color, title, body) in _slides)
                     Padding(
                       padding: const EdgeInsets.all(32),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(icon, size: 96, color: Theme.of(context).colorScheme.primary),
-                          const SizedBox(height: 24),
+                          FaceBlob(shape: shape, mood: mood, color: color, size: 180),
+                          const SizedBox(height: 28),
                           Text(title, style: text.headlineSmall, textAlign: TextAlign.center),
                           const SizedBox(height: 12),
                           Text(body, style: text.bodyLarge, textAlign: TextAlign.center),
@@ -130,7 +131,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     width: i == _page ? 20 : 8,
                     height: 8,
                     decoration: BoxDecoration(
-                      color: i == _page ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.outlineVariant,
+                      color: i == _page ? Palette.ink : const Color(0xFFCFC9E0),
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),

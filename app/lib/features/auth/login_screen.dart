@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_client.dart';
+import '../../shared/ui.dart';
 import 'auth_controller.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -63,56 +64,68 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Icon(Icons.spa_outlined, size: 56, color: theme.colorScheme.primary),
-                    const SizedBox(height: 12),
-                    Text('TechBreak', textAlign: TextAlign.center, style: theme.textTheme.headlineMedium),
-                    const SizedBox(height: 4),
                     Text(
-                      'Earn tokens for focus and mindful breaks.',
+                      _registering ? 'Make it yours' : 'Ready to put the phone down?',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.displaySmall?.copyWith(height: 1.05),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Earn tokens for focus and mindful breaks, then spend them on your favourite apps.',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium,
                     ),
-                    const SizedBox(height: 32),
-                    if (_registering) ...[
-                      TextFormField(
-                        controller: _name,
-                        decoration: const InputDecoration(labelText: 'Display name'),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter a name' : null,
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(color: Palette.paper, borderRadius: BorderRadius.circular(30)),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (_registering) ...[
+                            TextFormField(
+                              controller: _name,
+                              decoration: const InputDecoration(labelText: 'Display name', fillColor: Palette.lavender),
+                              validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter a name' : null,
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                          TextFormField(
+                            controller: _email,
+                            keyboardType: TextInputType.emailAddress,
+                            autofillHints: const [AutofillHints.email],
+                            decoration: const InputDecoration(labelText: 'Email', fillColor: Palette.lavender),
+                            validator: (v) => (v == null || !v.contains('@')) ? 'Enter a valid email' : null,
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _password,
+                            obscureText: true,
+                            autofillHints: const [AutofillHints.password],
+                            decoration: const InputDecoration(labelText: 'Password', fillColor: Palette.lavender),
+                            validator: (v) => (v == null || v.length < 8) ? 'At least 8 characters' : null,
+                            onFieldSubmitted: (_) => _submit(),
+                          ),
+                          if (_error != null) ...[
+                            const SizedBox(height: 12),
+                            Text(_error!, style: TextStyle(color: theme.colorScheme.error, fontWeight: FontWeight.w600)),
+                          ],
+                          const SizedBox(height: 18),
+                          FilledButton(
+                            onPressed: _busy ? null : _submit,
+                            child: _busy
+                                ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                : Text(_registering ? 'Create account' : 'Sign in'),
+                          ),
+                          TextButton(
+                            onPressed: _busy ? null : () => setState(() => _registering = !_registering),
+                            child: Text(_registering ? 'Have an account? Sign in' : 'New here? Create an account'),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 12),
-                    ],
-                    TextFormField(
-                      controller: _email,
-                      keyboardType: TextInputType.emailAddress,
-                      autofillHints: const [AutofillHints.email],
-                      decoration: const InputDecoration(labelText: 'Email'),
-                      validator: (v) => (v == null || !v.contains('@')) ? 'Enter a valid email' : null,
                     ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _password,
-                      obscureText: true,
-                      autofillHints: const [AutofillHints.password],
-                      decoration: const InputDecoration(labelText: 'Password'),
-                      validator: (v) => (v == null || v.length < 8) ? 'At least 8 characters' : null,
-                      onFieldSubmitted: (_) => _submit(),
-                    ),
-                    if (_error != null) ...[
-                      const SizedBox(height: 12),
-                      Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
-                    ],
-                    const SizedBox(height: 24),
-                    FilledButton(
-                      onPressed: _busy ? null : _submit,
-                      child: _busy
-                          ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                          : Text(_registering ? 'Create account' : 'Sign in'),
-                    ),
-                    // TODO(week 5): Google Sign-In — add google_sign_in and POST the ID token to /auth/google.
-                    TextButton(
-                      onPressed: _busy ? null : () => setState(() => _registering = !_registering),
-                      child: Text(_registering ? 'Have an account? Sign in' : 'New here? Create an account'),
-                    ),
+                    const SizedBox(height: 8),
+                    const FaceCollage(height: 260),
                   ],
                 ),
               ),

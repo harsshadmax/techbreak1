@@ -22,3 +22,5 @@ Thumbs.db
 
 # Local dev database (npm run db)
 server/.data/
+
+.firebase/

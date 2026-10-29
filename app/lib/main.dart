@@ -17,7 +17,6 @@ class TechBreakApp extends ConsumerWidget {
       title: 'TechBreak',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
       routerConfig: ref.watch(routerProvider),
     );
   }

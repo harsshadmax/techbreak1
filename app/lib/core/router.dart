@@ -44,7 +44,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(path: '/onboarding', builder: (context, state) => const OnboardingScreen()),
       GoRoute(path: '/insights', builder: (context, state) => const InsightsScreen()),
-      GoRoute(path: '/focus', builder: (context, state) => const FocusScreen()),
+      GoRoute(
+        path: '/focus',
+        builder: (context, state) => FocusScreen(initialMin: int.tryParse(state.uri.queryParameters['min'] ?? '') ?? 25),
+      ),
       GoRoute(
         path: '/break',
         builder: (context, state) => BreakScreen(afterSessionId: state.uri.queryParameters['after']),

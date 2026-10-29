@@ -4,10 +4,100 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_client.dart';
 import '../../shared/models.dart';
+import '../../shared/ui.dart';
 import '../../shared/widgets.dart';
+import '../auth/auth_controller.dart';
 import 'insights_logic.dart';
 
 const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const _months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+/// Month grid of faces, like a mood calendar: green when the daily goal was met, yellow for some focus.
+class _CalendarCard extends StatelessWidget {
+  const _CalendarCard({required this.cells, required this.month});
+
+  final List<CalendarCell?> cells;
+  final DateTime month;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final goalDays = cells.where((c) => c?.mood == DayMood.goal).length;
+    final activeDays = cells.where((c) => c != null && c.minutes > 0).length;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('${_months[month.month - 1]} ${month.year}', style: text.titleLarge),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: Palette.paper, borderRadius: BorderRadius.circular(26)),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440),
+              child: Column(
+            children: [
+              Row(
+                children: [
+                  for (final d in const ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'])
+                    Expanded(child: Center(child: Text(d, style: text.labelSmall))),
+                ],
+              ),
+              const SizedBox(height: 6),
+              GridView.count(
+                crossAxisCount: 7,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                mainAxisSpacing: 6,
+                crossAxisSpacing: 6,
+                children: [for (final c in cells) c == null ? const SizedBox.shrink() : _DayFace(cell: c)],
+              ),
+            ],
+          ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        BentoTile(
+          color: Palette.green,
+          title: 'Monthly focus summary',
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(goalDays > 0 ? 'Focused' : 'Getting started', style: text.headlineMedium),
+                    Text('$goalDays goal days · $activeDays active days', style: text.bodyMedium),
+                  ],
+                ),
+              ),
+              FaceBlob(mood: goalDays > 0 ? FaceMood.happy : FaceMood.calm, color: Colors.white, size: 64),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DayFace extends StatelessWidget {
+  const _DayFace({required this.cell});
+
+  final CalendarCell cell;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = '${cell.day.day}: ${cell.minutes} focus minutes';
+    final face = switch (cell.mood) {
+      DayMood.goal => const FaceBlob(shape: FaceShape.squircle, mood: FaceMood.happy, color: Palette.green),
+      DayMood.some => const FaceBlob(shape: FaceShape.squircle, mood: FaceMood.calm, color: Palette.yellow),
+      DayMood.none => const SizedBox.expand(child: DecoratedBox(decoration: BoxDecoration(color: Color(0xFFEDEBF1), borderRadius: BorderRadius.all(Radius.circular(10))))),
+      DayMood.future => const SizedBox.expand(child: DecoratedBox(decoration: BoxDecoration(color: Color(0xFFF4F2F8), borderRadius: BorderRadius.all(Radius.circular(10))))),
+    };
+    return Semantics(label: label, child: face);
+  }
+}
 
 class InsightsScreen extends ConsumerStatefulWidget {
   const InsightsScreen({super.key});
@@ -42,7 +132,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
   Future<void> _refresh() async {
     final api = ref.read(apiProvider);
-    final from = DateTime.now().subtract(const Duration(days: 7)).toUtc().toIso8601String();
+    final from = DateTime.now().subtract(const Duration(days: 40)).toUtc().toIso8601String();
     try {
       final results = await Future.wait([
         api.get('/sessions', query: {'from': from, 'limit': 200}),
@@ -99,11 +189,21 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(16),
                     children: [
+                      _CalendarCard(
+                        cells: monthCells(
+                          DateTime.now(),
+                          _sessions,
+                          DateTime.now(),
+                          goalMin: ref.watch(authProvider).valueOrNull?.dailyFocusGoalMin ?? 0,
+                        ),
+                        month: DateTime.now(),
+                      ),
+                      const SizedBox(height: 16),
                       Text('Focus minutes, last 7 days', style: text.titleMedium),
                       const SizedBox(height: 16),
                       _WeekChart(days: focusMinutesByDay(_sessions, DateTime.now())),
                       const SizedBox(height: 16),
-                      _Totals(sessions: _sessions),
+                      _Totals(sessions: _sessions.where((s) => s.startedAt.isAfter(DateTime.now().subtract(const Duration(days: 7)))).toList()),
                       const SizedBox(height: 24),
                       Text('Token history', style: text.titleMedium),
                       const SizedBox(height: 8),

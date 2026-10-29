@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/api_client.dart';
 import '../../core/theme.dart';
 import '../../shared/models.dart';
+import '../../shared/ui.dart';
 import '../../shared/widgets.dart';
 import '../auth/auth_controller.dart';
 
@@ -181,10 +182,16 @@ class _AppCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    CircleAvatar(
-                      radius: 22,
-                      backgroundColor: Colors.white.withValues(alpha: 0.65),
-                      child: Icon(appIcon(app.id), color: const Color(0xFF111111)),
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        FaceBlob(
+                          shape: FaceShape.values[app.id.codeUnits.fold<int>(0, (n, c) => n + c) % FaceShape.values.length],
+                          mood: open ? FaceMood.happy : FaceMood.sleepy,
+                          color: Colors.white.withValues(alpha: 0.7),
+                          size: 52,
+                        ),
+                      ],
                     ),
                     Icon(open ? Icons.lock_open : Icons.lock_outline, size: 20, color: const Color(0xFF111111)),
                   ],

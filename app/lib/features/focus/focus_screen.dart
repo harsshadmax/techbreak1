@@ -16,7 +16,10 @@ enum _Phase { choosing, running, finished }
 /// Timer-based focus session. Leaving the app while it runs is reported to the
 /// server as an interruption, which reduces the reward.
 class FocusScreen extends ConsumerStatefulWidget {
-  const FocusScreen({super.key});
+  const FocusScreen({super.key, this.initialMin = 25});
+
+  /// Preselected length, one of the presets.
+  final int initialMin;
 
   @override
   ConsumerState<FocusScreen> createState() => _FocusScreenState();
@@ -26,7 +29,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
   static const _presets = [25, 45, 60];
 
   _Phase _phase = _Phase.choosing;
-  int _plannedMin = 25;
+  late int _plannedMin = _presets.contains(widget.initialMin) ? widget.initialMin : 25;
   String? _sessionId;
   DateTime? _startedAt;
   Timer? _ticker;
