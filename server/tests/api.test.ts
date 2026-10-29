@@ -1,4 +1,4 @@
-import { MongoMemoryReplSet } from 'mongodb-memory-server';
+﻿import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import request from 'supertest';
 import { createApp } from '../src/app';
@@ -50,6 +50,30 @@ describe('auth', () => {
   });
 });
 
+describe('sign in with email or username', () => {
+  it('registers a username and signs in with either identifier, case-insensitively', async () => {
+    await request(app)
+      .post('/api/v1/auth/register')
+      .send({ email: 'handle@techbreak.test', username: 'Handle_1', password: 'correct-horse', displayName: 'Handle' })
+      .expect(201);
+
+    const byUsername = await request(app).post('/api/v1/auth/login').send({ identifier: 'handle_1', password: 'correct-horse' }).expect(200);
+    expect(byUsername.body.user.username).toBe('handle_1');
+    await request(app).post('/api/v1/auth/login').send({ identifier: 'HANDLE@techbreak.test', password: 'correct-horse' }).expect(200);
+    // Older clients still send `email`.
+    await request(app).post('/api/v1/auth/login').send({ email: 'handle@techbreak.test', password: 'correct-horse' }).expect(200);
+    await request(app).post('/api/v1/auth/login').send({ identifier: 'handle_1', password: 'wrong' }).expect(401);
+    await request(app).post('/api/v1/auth/login').send({ identifier: 'nobody', password: 'correct-horse' }).expect(401);
+    await request(app).post('/api/v1/auth/login').send({ password: 'x' }).expect(400);
+  });
+
+  it('rejects a taken or malformed username', async () => {
+    const base = { password: 'correct-horse', displayName: 'Dup' };
+    await request(app).post('/api/v1/auth/register').send({ ...base, email: 'dup1@techbreak.test', username: 'dupname' }).expect(201);
+    await request(app).post('/api/v1/auth/register').send({ ...base, email: 'dup2@techbreak.test', username: 'DupName' }).expect(409);
+    await request(app).post('/api/v1/auth/register').send({ ...base, email: 'dup3@techbreak.test', username: 'a b' }).expect(400);
+  });
+});
 describe('focus → earn → redeem', () => {
   it('awards tokens once, hits the goal, and spends on a reward', async () => {
     const { token, userId } = await signUp('flow@techbreak.test');
@@ -176,3 +200,4 @@ describe('app unlocks', () => {
     expect(rows.reduce((n, r) => n + r.amount, 0)).toBe(70);
   });
 });
+

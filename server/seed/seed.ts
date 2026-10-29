@@ -53,6 +53,17 @@ async function main() {
   );
   console.log('Demo user: demo@techbreak.test (password from SEED_DEMO_PASSWORD)');
 
+  // A second demo account that signs in with a short, easy username and password (login accepts any length).
+  await User.updateOne(
+    { email: 'iker@techbreak.test' },
+    {
+      $setOnInsert: { displayName: 'Iker', inviteCode: 'IKER0001', timezone: 'UTC' },
+      $set: { username: 'iker', passwordHash: await bcrypt.hash('123456', 10) },
+    },
+    { upsert: true },
+  );
+  console.log('Demo user: iker / 123456 (also iker@techbreak.test)');
+
   await mongoose.disconnect();
 }
 

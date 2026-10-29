@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+﻿import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
@@ -62,7 +62,7 @@ describe('Sheet', () => {
 })
 
 describe('LoginPage', () => {
-  it('validates the email and password before calling the server', async () => {
+  it('asks for an email or username and a password before calling the server', async () => {
     render(
       <MemoryRouter>
         <AuthProvider>
@@ -71,8 +71,8 @@ describe('LoginPage', () => {
       </MemoryRouter>,
     )
     await userEvent.click(await screen.findByRole('button', { name: 'Sign in' }))
-    expect(screen.getByText('Enter a valid email')).toBeInTheDocument()
-    expect(screen.getByText('At least 8 characters')).toBeInTheDocument()
+    expect(screen.getByText('Enter your email or username')).toBeInTheDocument()
+    expect(screen.getByText('Enter your password')).toBeInTheDocument()
   })
 
   it('offers Google sign-in and explains when it is not configured', async () => {
@@ -98,5 +98,9 @@ describe('LoginPage', () => {
     await userEvent.click(await screen.findByRole('button', { name: /Create an account/ }))
     await userEvent.click(screen.getByRole('button', { name: 'Create account' }))
     expect(screen.getByText('Enter a name')).toBeInTheDocument()
+    expect(screen.getByText('Enter a valid email')).toBeInTheDocument()
+    expect(screen.getByText('At least 8 characters')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Username (optional)' })).toBeInTheDocument()
   })
 })
+

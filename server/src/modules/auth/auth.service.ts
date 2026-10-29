@@ -23,10 +23,12 @@ async function issueTokens(user: UserDoc) {
   return { accessToken, refreshToken, user };
 }
 
-export async function register(input: { email: string; password: string; displayName: string; timezone?: string }) {
+export async function register(input: { email: string; username?: string; password: string; displayName: string; timezone?: string }) {
   if (await User.exists({ email: input.email.toLowerCase() })) throw new HttpError(409, 'An account with that email already exists');
+  if (input.username && (await User.exists({ username: input.username.toLowerCase() }))) throw new HttpError(409, 'That username is taken');
   const user = await User.create({
     email: input.email,
+    ...(input.username ? { username: input.username } : {}),
     passwordHash: await bcrypt.hash(input.password, 10),
     displayName: input.displayName,
     timezone: input.timezone ?? 'UTC',
@@ -35,10 +37,12 @@ export async function register(input: { email: string; password: string; display
   return issueTokens(user);
 }
 
-export async function login(email: string, password: string) {
-  const user = await User.findOne({ email: email.toLowerCase() });
+/** Sign in with an email (contains "@") or a username. */
+export async function login(identifier: string, password: string) {
+  const id = identifier.trim().toLowerCase();
+  const user = await User.findOne(id.includes('@') ? { email: id } : { username: id });
   if (!user?.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
-    throw new HttpError(401, 'Wrong email or password');
+    throw new HttpError(401, 'Wrong email, username or password');
   }
   return issueTokens(user);
 }

@@ -3,6 +3,8 @@ import type { Streak } from '../tokens/engine';
 
 export interface IUser {
   email: string;
+  /** Optional unique handle (lowercase letters, digits, underscore) that can be used to sign in instead of the email. */
+  username?: string;
   passwordHash?: string;
   authProvider: 'local' | 'google';
   displayName: string;
@@ -25,6 +27,7 @@ export type UserDoc = HydratedDocument<IUser>;
 const userSchema = new Schema<IUser>(
   {
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    username: { type: String, unique: true, sparse: true, lowercase: true, trim: true, match: /^[a-z0-9_]{3,20}$/ },
     passwordHash: String,
     authProvider: { type: String, enum: ['local', 'google'], default: 'local' },
     displayName: { type: String, required: true, trim: true, maxlength: 40 },

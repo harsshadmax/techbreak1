@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+﻿import { useState, type FormEvent } from 'react'
 import { errorMessage } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { FaceCollage } from '../ui/Face'
@@ -11,6 +11,8 @@ export function LoginPage() {
   const { login, register, loginWithGoogle } = useAuth()
   const [registering, setRegistering] = useState(false)
   const [name, setName] = useState('')
+  const [username, setUsername] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -19,9 +21,15 @@ export function LoginPage() {
 
   function validate() {
     const next: Record<string, string> = {}
-    if (registering && !name.trim()) next.name = 'Enter a name'
-    if (!email.includes('@')) next.email = 'Enter a valid email'
-    if (password.length < 8) next.password = 'At least 8 characters'
+    if (registering) {
+      if (!name.trim()) next.name = 'Enter a name'
+      if (username.trim() && !/^[a-zA-Z0-9_]{3,20}$/.test(username.trim())) next.username = '3-20 letters, numbers or underscores'
+      if (!email.includes('@')) next.email = 'Enter a valid email'
+      if (password.length < 8) next.password = 'At least 8 characters'
+    } else {
+      if (!identifier.trim()) next.identifier = 'Enter your email or username'
+      if (!password) next.password = 'Enter your password'
+    }
     setErrors(next)
     return Object.keys(next).length === 0
   }
@@ -32,8 +40,8 @@ export function LoginPage() {
     setBusy(true)
     setServerError(null)
     try {
-      if (registering) await register(email.trim(), password, name.trim())
-      else await login(email.trim(), password)
+      if (registering) await register(email.trim(), password, name.trim(), username.trim() || undefined)
+      else await login(identifier.trim(), password)
     } catch (err) {
       setServerError(errorMessage(err))
     } finally {
@@ -61,22 +69,47 @@ export function LoginPage() {
       <p className="mt-3 text-center text-sm">Earn tokens for focus and mindful breaks, then spend them on your favourite apps.</p>
 
       <form onSubmit={submit} noValidate className="mt-6 flex flex-col gap-3 rounded-[1.9rem] bg-paper p-4.5">
-        {registering && (
-          <Field label="Display name" error={errors.name}>
-            <input className={FIELD} placeholder="Display name" aria-label="Display name" value={name} onChange={(e) => setName(e.target.value)} />
+        {registering ? (
+          <>
+            <Field label="Display name" error={errors.name}>
+              <input className={FIELD} placeholder="Display name" aria-label="Display name" value={name} onChange={(e) => setName(e.target.value)} />
+            </Field>
+            <Field label="Username (optional)" error={errors.username}>
+              <input
+                className={FIELD}
+                placeholder="Username (optional)"
+                aria-label="Username (optional)"
+                autoComplete="username"
+                autoCapitalize="none"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+              />
+            </Field>
+            <Field label="Email" error={errors.email}>
+              <input
+                className={FIELD}
+                type="email"
+                placeholder="Email"
+                aria-label="Email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </Field>
+          </>
+        ) : (
+          <Field label="Email or username" error={errors.identifier}>
+            <input
+              className={FIELD}
+              placeholder="Email or username"
+              aria-label="Email or username"
+              autoComplete="username"
+              autoCapitalize="none"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+            />
           </Field>
         )}
-        <Field label="Email" error={errors.email}>
-          <input
-            className={FIELD}
-            type="email"
-            placeholder="Email"
-            aria-label="Email"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </Field>
         <Field label="Password" error={errors.password}>
           <input
             className={FIELD}
@@ -125,3 +158,4 @@ function Field({ label, error, children }: { label: string; error?: string; chil
     </label>
   )
 }
+

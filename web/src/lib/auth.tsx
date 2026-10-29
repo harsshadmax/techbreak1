@@ -7,8 +7,9 @@ interface AuthState {
   user: User | null
   /** True until the stored session has been checked. */
   loading: boolean
-  login: (email: string, password: string) => Promise<void>
-  register: (email: string, password: string, displayName: string) => Promise<void>
+  /** [identifier] is an email address or a username. */
+  login: (identifier: string, password: string) => Promise<void>
+  register: (email: string, password: string, displayName: string, username?: string) => Promise<void>
   /** Signs in (or creates the account) from a Google ID token. */
   loginWithGoogle: (idToken: string) => Promise<void>
   logout: () => Promise<void>
@@ -70,10 +71,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       loading,
-      login: (email, password) => authenticate('/auth/login', { email, password }),
-      register: (email, password, displayName) => {
+      login: (identifier, password) => authenticate('/auth/login', { identifier, password }),
+      register: (email, password, displayName, username) => {
         const timezone = deviceTimezone()
-        return authenticate('/auth/register', { email, password, displayName, ...(timezone ? { timezone } : {}) })
+        return authenticate('/auth/register', {
+          email,
+          password,
+          displayName,
+          ...(username ? { username } : {}),
+          ...(timezone ? { timezone } : {}),
+        })
       },
       loginWithGoogle: (idToken) => {
         const timezone = deviceTimezone()
