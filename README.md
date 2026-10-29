@@ -1,4 +1,4 @@
-# TechBreak
+﻿# TechBreak
 
 A gamified token economy platform to combat digital distraction and promote self-regulation.
 Users earn tokens for focus sessions and mindful breaks, then spend them on avatar items, perks, or donation pledges.
@@ -8,13 +8,14 @@ See [docs/blueprint.md](docs/blueprint.md) for the full product and technical pl
 ```
 techbreak/
 ├── server/   Node.js + Express + MongoDB API (TypeScript), including the Token Engine
-├── app/      Flutter client (web, Android, iOS)
+├── web/      React + TypeScript + Tailwind CSS client (the app)
+├── app/      Earlier Flutter client (superseded by web/, kept for reference)
 └── docs/     Blueprint and design docs
 ```
 
 ## Quick start (web)
 
-Needs Node.js 20+ and Flutter (stable, Dart 3.7+). Run each block in its own terminal:
+Needs Node.js 20+. Run each block in its own terminal:
 
 ```bash
 cd server && cp .env.example .env && npm install
@@ -28,8 +29,8 @@ npm run dev               # API on http://localhost:4000/api/v1
 ```
 
 ```bash
-cd app && flutter pub get
-flutter run -d web-server --web-port 8099    # then open http://localhost:8099
+cd web && npm install
+npm run dev                # then open http://localhost:5173
 ```
 
 Sign in with the demo user `demo@techbreak.test` / `techbreak-demo` (`SEED_DEMO_PASSWORD` in `server/.env`), or create an account.
@@ -37,10 +38,8 @@ Sign in with the demo user `demo@techbreak.test` / `techbreak-demo` (`SEED_DEMO_
 ## Prerequisites
 
 - Node.js 20+
-- Flutter (stable, Dart 3.7+); Chrome or Edge for web
 - MongoDB **running as a replica set** (token operations use transactions): `npm run db`
   (no Docker needed), `docker compose up -d`, or a free MongoDB Atlas cluster
-- Android builds also need the Android SDK (Android Studio)
 
 ## Run the API
 
@@ -62,15 +61,14 @@ npm run typecheck
 ## Run the app
 
 ```bash
-cd app
-flutter pub get
-flutter analyze && flutter test
-flutter run -d chrome          # or: -d web-server --web-port 8099, -d edge
-flutter build web --release
+cd web
+npm install
+npm run dev                # http://localhost:5173
+npm run typecheck && npm test
+npm run build
 ```
 
-Point the app at a different API with `--dart-define=API_BASE_URL=...`.
-On the Android emulator use `http://10.0.2.2:4000/api/v1`.
+Point the app at a different API with `VITE_API_BASE_URL` (see `web/.env.example`).
 
 To try earning tokens without waiting 25 minutes, move the active session's `startedAt` back in MongoDB, then press "Finish early".
 
@@ -121,3 +119,4 @@ All routes are under `/api/v1` and need `Authorization: Bearer <accessToken>` ex
 | GET | `/leaderboard?scope=global\|friends` | This week's focus ranking |
 
 Token rules live in [server/src/modules/tokens/engine.ts](server/src/modules/tokens/engine.ts) — tune values there.
+
