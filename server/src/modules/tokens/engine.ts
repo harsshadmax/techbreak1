@@ -15,7 +15,7 @@ export type EarnReason =
   | 'challenge_reward'
   | 'level_up';
 
-export type BurnReason = 'reward_redeem' | 'donation' | 'streak_freeze';
+export type BurnReason = 'reward_redeem' | 'donation' | 'streak_freeze' | 'app_unlock';
 
 export interface Award {
   amount: number;
@@ -49,6 +49,26 @@ export const RULES = {
     return env.dailyEarnCap;
   },
 };
+
+export interface UnlockableApp {
+  id: string;
+  name: string;
+  category: 'social' | 'streaming';
+  /** Tokens spent per unlock. */
+  cost: number;
+  /** Minutes of access one unlock buys. */
+  minutes: number;
+}
+
+/** Apps users can unlock for a limited time by spending tokens. The app only records the time window. */
+export const APP_CATALOG: readonly UnlockableApp[] = [
+  { id: 'instagram', name: 'Instagram', category: 'social', cost: 30, minutes: 15 },
+  { id: 'snapchat', name: 'Snapchat', category: 'social', cost: 20, minutes: 10 },
+  { id: 'tiktok', name: 'TikTok', category: 'social', cost: 30, minutes: 15 },
+  { id: 'youtube', name: 'YouTube', category: 'streaming', cost: 40, minutes: 20 },
+  { id: 'netflix', name: 'Netflix', category: 'streaming', cost: 60, minutes: 30 },
+  { id: 'spotify', name: 'Spotify', category: 'streaming', cost: 15, minutes: 10 },
+];
 
 /** Activity rewards count toward the daily cap; milestone rewards don't. */
 export const CAPPED_REASONS: readonly EarnReason[] = ['focus_complete', 'clean_bonus', 'break_complete'];

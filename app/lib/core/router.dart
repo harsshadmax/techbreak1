@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/apps/apps_screen.dart';
 import '../features/auth/auth_controller.dart';
 import '../features/auth/login_screen.dart';
 import '../features/dashboard/dashboard_screen.dart';
@@ -52,6 +53,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state, shell) => HomeShell(shell: shell),
         branches: [
           StatefulShellBranch(routes: [GoRoute(path: '/', builder: (context, state) => const DashboardScreen())]),
+          StatefulShellBranch(routes: [GoRoute(path: '/apps', builder: (context, state) => const AppsScreen())]),
           StatefulShellBranch(routes: [GoRoute(path: '/rewards', builder: (context, state) => const RewardsScreen())]),
           StatefulShellBranch(routes: [GoRoute(path: '/social', builder: (context, state) => const SocialScreen())]),
           StatefulShellBranch(routes: [GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen())]),

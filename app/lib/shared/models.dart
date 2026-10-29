@@ -222,6 +222,42 @@ class LeaderboardEntry {
   final bool isMe;
 }
 
+/// An unlockable app from `GET /apps`.
+class UnlockApp {
+  const UnlockApp({
+    required this.id,
+    required this.name,
+    required this.category,
+    required this.cost,
+    required this.minutes,
+    this.unlockedUntil,
+  });
+
+  factory UnlockApp.fromJson(Map<String, dynamic> j) => UnlockApp(
+        id: j['id'] as String,
+        name: j['name'] as String,
+        category: j['category'] as String? ?? 'social',
+        cost: _int(j['cost']),
+        minutes: _int(j['minutes']),
+        unlockedUntil: j['unlockedUntil'] == null ? null : DateTime.parse(j['unlockedUntil'] as String),
+      );
+
+  final String id;
+  final String name;
+  final String category;
+  final int cost;
+  final int minutes;
+  final DateTime? unlockedUntil;
+
+  /// Time left at [now] (server-adjusted), or null when the app is locked.
+  Duration? remaining(DateTime now) {
+    final until = unlockedUntil;
+    if (until == null) return null;
+    final left = until.difference(now);
+    return left.isNegative || left == Duration.zero ? null : left;
+  }
+}
+
 /// A focus or break session from `GET /sessions`.
 class SessionRec {
   const SessionRec({required this.type, required this.status, required this.actualMin, required this.startedAt, required this.tokensAwarded});

@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import { env } from './config/env';
 import { requireAuth } from './middleware/auth';
 import { errorHandler } from './middleware/errors';
+import appRoutes from './modules/apps/apps.routes';
 import authRoutes from './modules/auth/auth.routes';
 import challengeRoutes from './modules/challenges/challenges.routes';
 import goalRoutes from './modules/goals/goals.routes';
@@ -33,6 +34,7 @@ export function createApp() {
   api.use('/goals', goalRoutes);
   api.use('/tokens', tokenRoutes);
   api.use('/challenges', challengeRoutes);
+  api.use('/apps', appRoutes);
   api.use(rewardRoutes); // /rewards, /inventory, /donations
   api.use(socialRoutes); // /leaderboard, /friends
 

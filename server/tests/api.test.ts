@@ -146,3 +146,33 @@ describe('hourly rollover job', () => {
     expect(user!.lastRolloverDate).toBe('2026-10-28');
   });
 });
+
+describe('app unlocks', () => {
+  it('spends tokens for a timed unlock and blocks double unlocks', async () => {
+    const { token, userId } = await signUp('apps@techbreak.test');
+    const auth = { Authorization: `Bearer ${token}` };
+
+    await request(app).post('/api/v1/apps/instagram/unlock').set(auth).expect(402);
+    await request(app).post('/api/v1/apps/nope/unlock').set(auth).expect(404);
+
+    await User.updateOne({ _id: userId }, { $set: { tokenBalance: 100 } });
+    await TokenTransaction.create({ userId, amount: 100, type: 'earn', reason: 'focus_complete', day: '2026-10-30', balanceAfter: 100 });
+
+    const unlocked = await request(app).post('/api/v1/apps/instagram/unlock').set(auth).expect(201);
+    expect(unlocked.body.user.tokenBalance).toBe(70);
+    const msLeft = new Date(unlocked.body.unlock.expiresAt).getTime() - Date.now();
+    expect(msLeft).toBeGreaterThan(14 * 60000);
+    expect(msLeft).toBeLessThanOrEqual(15 * 60000);
+
+    await request(app).post('/api/v1/apps/instagram/unlock').set(auth).expect(409);
+
+    const list = await request(app).get('/api/v1/apps').set(auth).expect(200);
+    const insta = list.body.items.find((a: { id: string }) => a.id === 'instagram');
+    const snap = list.body.items.find((a: { id: string }) => a.id === 'snapchat');
+    expect(insta.unlockedUntil).not.toBeNull();
+    expect(snap.unlockedUntil).toBeNull();
+
+    const rows = await TokenTransaction.find({ userId });
+    expect(rows.reduce((n, r) => n + r.amount, 0)).toBe(70);
+  });
+});
