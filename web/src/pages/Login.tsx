@@ -2,12 +2,13 @@ import { useState, type FormEvent } from 'react'
 import { errorMessage } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { FaceCollage } from '../ui/Face'
+import { GoogleButton } from '../ui/GoogleButton'
 import { Button } from '../ui/kit'
 
 const FIELD = 'w-full rounded-2xl bg-lavender px-4 py-3.5 text-base outline-none focus:ring-2 focus:ring-ink placeholder:text-muted'
 
 export function LoginPage() {
-  const { login, register } = useAuth()
+  const { login, register, loginWithGoogle } = useAuth()
   const [registering, setRegistering] = useState(false)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -33,6 +34,18 @@ export function LoginPage() {
     try {
       if (registering) await register(email.trim(), password, name.trim())
       else await login(email.trim(), password)
+    } catch (err) {
+      setServerError(errorMessage(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function signInWithGoogle(idToken: string) {
+    setBusy(true)
+    setServerError(null)
+    try {
+      await loginWithGoogle(idToken)
     } catch (err) {
       setServerError(errorMessage(err))
     } finally {
@@ -86,6 +99,12 @@ export function LoginPage() {
         <Button variant="ghost" small full disabled={busy} onClick={() => setRegistering((r) => !r)}>
           {registering ? 'Have an account? Sign in' : 'New here? Create an account'}
         </Button>
+        <div className="flex items-center gap-3 text-xs font-bold text-muted" aria-hidden="true">
+          <span className="h-px flex-1 bg-ink/15" />
+          or
+          <span className="h-px flex-1 bg-ink/15" />
+        </div>
+        <GoogleButton disabled={busy} onError={setServerError} onToken={signInWithGoogle} />
       </form>
 
       <FaceCollage className="mt-4" />

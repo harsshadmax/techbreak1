@@ -9,6 +9,8 @@ interface AuthState {
   loading: boolean
   login: (email: string, password: string) => Promise<void>
   register: (email: string, password: string, displayName: string) => Promise<void>
+  /** Signs in (or creates the account) from a Google ID token. */
+  loginWithGoogle: (idToken: string) => Promise<void>
   logout: () => Promise<void>
   setUser: (user: User) => void
   /** Re-fetch the user after anything that changes balance, streak or avatar. */
@@ -72,6 +74,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       register: (email, password, displayName) => {
         const timezone = deviceTimezone()
         return authenticate('/auth/register', { email, password, displayName, ...(timezone ? { timezone } : {}) })
+      },
+      loginWithGoogle: (idToken) => {
+        const timezone = deviceTimezone()
+        return authenticate('/auth/google', { idToken, ...(timezone ? { timezone } : {}) })
       },
       logout: async () => {
         const refreshToken = tokens.refresh

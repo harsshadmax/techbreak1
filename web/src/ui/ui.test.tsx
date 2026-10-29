@@ -75,6 +75,18 @@ describe('LoginPage', () => {
     expect(screen.getByText('At least 8 characters')).toBeInTheDocument()
   })
 
+  it('offers Google sign-in and explains when it is not configured', async () => {
+    render(
+      <MemoryRouter>
+        <AuthProvider>
+          <LoginPage />
+        </AuthProvider>
+      </MemoryRouter>,
+    )
+    await userEvent.click(await screen.findByRole('button', { name: /Continue with Google/ }))
+    expect(screen.getByRole('alert')).toHaveTextContent(/Google sign-in is not set up yet/)
+  })
+
   it('asks for a display name when creating an account', async () => {
     render(
       <MemoryRouter>
