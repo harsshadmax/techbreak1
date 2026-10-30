@@ -69,10 +69,12 @@ const IKER_PURCHASES: Purchase[] = [
 ];
 
 const FRIENDS = [
-  { name: 'Maya Rao', email: 'maya@techbreak.test', code: 'MAYA0001', minutes: [60, 75, 45, 90], streak: 21 },
-  { name: 'Noah Kim', email: 'noah@techbreak.test', code: 'NOAH0001', minutes: [45, 60, 30], streak: 9 },
-  { name: 'Zoe Park', email: 'zoe@techbreak.test', code: 'ZOE00001', minutes: [50, 25], streak: 4 },
-  { name: 'Liam Ortiz', email: 'liam@techbreak.test', code: 'LIAM0001', minutes: [20], streak: 1 },
+  { name: 'Arjun', email: 'arjun@techbreak.test', code: 'ARJUN001', minutes: [60, 75, 45, 90], streak: 21 },
+  { name: 'Raju', email: 'raju@techbreak.test', code: 'RAJU0001', minutes: [45, 60, 30], streak: 9 },
+  { name: 'Rizwan', email: 'rizwan@techbreak.test', code: 'RIZWAN01', minutes: [50, 70, 40], streak: 14 },
+  { name: 'Pavithiran', email: 'pavithiran@techbreak.test', code: 'PAVI0001', minutes: [50, 25], streak: 4 },
+  { name: 'Leo', email: 'leo@techbreak.test', code: 'LEO00001', minutes: [35, 30], streak: 6 },
+  { name: 'Pugal', email: 'pugal@techbreak.test', code: 'PUGAL001', minutes: [20], streak: 1 },
 ];
 
 const col = (m: { collection: mongoose.Collection }) => m.collection;
@@ -349,7 +351,9 @@ async function main() {
   const heroIds = heroUsers.map((u) => u._id);
   const ids = [...heroIds, ...friendUsers.map((u) => u._id)];
 
-  // 2. Wipe previous demo data.
+  // 2. Wipe previous demo data (including friends from earlier versions of this script).
+  const old = await User.find({ email: { $in: ["maya","noah","zoe","liam"].map((n) => n + "@techbreak.test") } }, { _id: 1 });
+  await Promise.all([Session.deleteMany({ userId: { $in: old.map((u) => u._id) } }), TokenTransaction.deleteMany({ userId: { $in: old.map((u) => u._id) } }), User.deleteMany({ _id: { $in: old.map((u) => u._id) } })]);
   await Promise.all([
     Session.deleteMany({ userId: { $in: ids } }),
     Goal.deleteMany({ userId: { $in: ids } }),
