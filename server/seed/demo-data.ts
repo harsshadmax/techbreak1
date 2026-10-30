@@ -1,5 +1,5 @@
 /**
- * Fills the demo account (username "iker", password "123456") with five weeks of realistic mock data so every
+ * Fills the demo accounts (iker / 123456 and riz / 123456) with five weeks of realistic mock data so every
  * screen has something to show: sessions, a token ledger that adds up, streak, level, purchases, an equipped
  * avatar, donations, app unlocks, challenges, friends and a leaderboard.
  *
@@ -38,13 +38,20 @@ const MIN = 60_000;
 const TODAY = dayKey(NOW, TZ);
 
 /** Total focus minutes per day, oldest first and ending today (today is a work in progress). */
-const DAILY_FOCUS = [
+type Purchase = { daysAgo: number; slug?: string; app?: string; reason: BurnReason };
+
+interface Hero {
+  email: string; username: string; displayName: string; code: string; focus: number[]; purchases: Purchase[];
+  activeApp: string; equip: { hat: string; outfit: string; background: string };
+}
+
+const IKER_FOCUS = [
   0, 70, 65, 0, 80, 45, 0, 60, 75, 0, 0, 90, 65, 60, 0, 60, 100, 70, 0, 65, 60, 80, 90, 60, 70, 65, 75, 60, 85, 60, 70, 90, 65, 80,
   35,
 ];
 
 /** Purchases by how many days ago (0 = today), in the order they happened. */
-const PURCHASES: { daysAgo: number; slug?: string; app?: string; reason: BurnReason }[] = [
+const IKER_PURCHASES: Purchase[] = [
   { daysAgo: 26, slug: 'hat-beanie', reason: 'reward_redeem' },
   { daysAgo: 22, app: 'instagram', reason: 'app_unlock' },
   { daysAgo: 20, slug: 'outfit-hoodie', reason: 'reward_redeem' },
@@ -68,6 +75,8 @@ const FRIENDS = [
   { name: 'Liam Ortiz', email: 'liam@techbreak.test', code: 'LIAM0001', minutes: [20], streak: 1 },
 ];
 
+const col = (m: { collection: mongoose.Collection }) => m.collection;
+const weekStart = weekStartUtc(NOW);
 const at = (key: string, hhmm: string) => new Date(`${key}T${hhmm}:00+05:30`);
 const dayAgo = (n: number) => addDays(TODAY, -n);
 const oid = () => new Types.ObjectId();
@@ -100,37 +109,36 @@ function split(total: number): number[] {
   return total > 0 ? [total] : [];
 }
 
-async function main() {
-  await mongoose.connect(env.mongoUri);
+const RIZ_FOCUS = [
+  50, 0, 65, 70, 0, 60, 45, 80, 0, 60, 75, 60, 0, 90, 65, 0, 60, 70, 55, 60, 0, 100, 65, 60, 80, 0, 60, 70, 75, 60, 65, 90, 60, 70,
+  25,
+];
 
-  const rewards = new Map((await Reward.find()).map((r) => [r.slug, r]));
-  if (rewards.size === 0) throw new Error('No rewards found. Run `npm run seed` first.');
+const RIZ_PURCHASES: Purchase[] = [
+  { daysAgo: 24, slug: 'outfit-yoga', reason: 'reward_redeem' },
+  { daysAgo: 21, app: 'spotify', reason: 'app_unlock' },
+  { daysAgo: 18, slug: 'bg-ocean', reason: 'reward_redeem' },
+  { daysAgo: 14, slug: 'donate-tree', reason: 'donation' },
+  { daysAgo: 12, app: 'netflix', reason: 'app_unlock' },
+  { daysAgo: 10, slug: 'hat-headphones', reason: 'reward_redeem' },
+  { daysAgo: 8, slug: 'streak_freeze', reason: 'streak_freeze' },
+  { daysAgo: 6, app: 'tiktok', reason: 'app_unlock' },
+  { daysAgo: 3, app: 'snapchat', reason: 'app_unlock' },
+  { daysAgo: 1, slug: 'outfit-hoodie', reason: 'reward_redeem' },
+];
 
-  // 1. Users.
-  const upsertUser = async (email: string, set: Record<string, unknown>, onInsert: Record<string, unknown>) => {
-    await User.updateOne({ email }, { $set: set, $setOnInsert: onInsert }, { upsert: true });
-    return (await User.findOne({ email }))!;
-  };
-  const iker = await upsertUser(
-    'iker@techbreak.test',
-    { username: 'iker', displayName: 'Iker', passwordHash: await bcrypt.hash('123456', 10), timezone: TZ },
-    { inviteCode: 'IKER0001' },
-  );
-  const friendUsers = [];
-  for (const f of FRIENDS) friendUsers.push(await upsertUser(f.email, { displayName: f.name, timezone: TZ }, { inviteCode: f.code }));
-  const ids = [iker._id, ...friendUsers.map((u) => u._id)];
+const HEROES: Hero[] = [
+  { email: 'iker@techbreak.test', username: 'iker', displayName: 'Iker', code: 'IKER0001', focus: IKER_FOCUS, purchases: IKER_PURCHASES, activeApp: 'spotify',
+    equip: { hat: 'hat-crown', outfit: 'outfit-hoodie', background: 'bg-forest' } },
+  { email: 'riz@techbreak.test', username: 'riz', displayName: 'Riz', code: 'RIZ00001', focus: RIZ_FOCUS, purchases: RIZ_PURCHASES, activeApp: 'instagram',
+    equip: { hat: 'hat-headphones', outfit: 'outfit-hoodie', background: 'bg-ocean' } },
+];
 
-  // 2. Wipe previous demo data.
-  await Promise.all([
-    Session.deleteMany({ userId: { $in: ids } }),
-    Goal.deleteMany({ userId: { $in: ids } }),
-    TokenTransaction.deleteMany({ userId: { $in: ids } }),
-    InventoryItem.deleteMany({ userId: { $in: ids } }),
-    Donation.deleteMany({ userId: { $in: ids } }),
-    ChallengeProgress.deleteMany({ userId: { $in: ids } }),
-    AppUnlock.deleteMany({ userId: { $in: ids } }),
-  ]);
-
+/** Builds one demo account's timeline and writes it. Returns the user's id. */
+async function buildHero(hero: Hero, me: { _id: Types.ObjectId }, friendUsers: { _id: Types.ObjectId }[], rewards: Map<string, any>) {
+  const DAILY_FOCUS = hero.focus;
+  const PURCHASES = hero.purchases;
+  const iker = hero; // for log lines
   // 3. Build iker's timeline of events.
   const events: Event[] = [];
   const focusIds: Types.ObjectId[] = [];
@@ -183,13 +191,12 @@ async function main() {
     }
   }
   // An unlock that is open right now.
-  const spotify = APP_CATALOG.find((a) => a.id === 'spotify')!;
-  const spotifyStart = new Date(NOW.getTime() - 2 * MIN);
-  events.push({ t: spotifyStart, kind: 'spend', amount: spotify.cost, reason: 'app_unlock', day: TODAY });
+  const activeApp = APP_CATALOG.find((a) => a.id === hero.activeApp)!;
+  const activeAppStart = new Date(NOW.getTime() - 2 * MIN);
+  events.push({ t: activeAppStart, kind: 'spend', amount: activeApp.cost, reason: 'app_unlock', day: TODAY });
 
   // This week's challenges.
   const challenges = new Map((await Challenge.find()).map((c) => [c.title, c]));
-  const weekStart = weekStartUtc(NOW);
   const claimedAt = new Date(Math.max(weekStart.getTime() + 2 * 3600_000, NOW.getTime() - 20 * 3600_000));
   const streakChallenge = challenges.get('Three-Day Streak');
   if (streakChallenge) events.push({ t: claimedAt, kind: 'bonus', amount: streakChallenge.rewardTokens, reason: 'challenge_reward', refId: streakChallenge._id, day: dayKey(claimedAt, TZ) });
@@ -215,7 +222,7 @@ async function main() {
     level = Math.max(level, newLevel);
     for (const a of all) {
       balance += a.amount;
-      txs.push({ _id: oid(), userId: iker._id, amount: a.amount, type: 'earn', reason: a.reason, refId, day, balanceAfter: balance, createdAt: t });
+      txs.push({ _id: oid(), userId: me._id, amount: a.amount, type: 'earn', reason: a.reason, refId, day, balanceAfter: balance, createdAt: t });
     }
     return all;
   };
@@ -232,14 +239,14 @@ async function main() {
       }
       const credited = credit(awards, ev.t, spec.day, spec.id);
       sessions.push({
-        _id: spec.id, userId: iker._id, type: 'focus', plannedMin: spec.minutes, actualMin: spec.minutes, status: 'completed',
+        _id: spec.id, userId: me._id, type: 'focus', plannedMin: spec.minutes, actualMin: spec.minutes, status: 'completed',
         interruptions: spec.interruptions, startedAt: spec.start, endedAt: ev.t, platform: spec.day.endsWith('5') ? 'android' : 'web',
         tokensAwarded: credited.reduce((n, a) => n + a.amount, 0), awards: credited, createdAt: spec.start, updatedAt: ev.t,
       });
     } else if (ev.kind === 'break') {
       const credited = credit([{ amount: RULES.breakReward, reason: 'break_complete' }], ev.t, ev.day, ev.id);
       sessions.push({
-        _id: ev.id, userId: iker._id, type: 'break', breakKind: ev.breakKind, afterSessionId: ev.afterId, plannedMin: ev.minutes,
+        _id: ev.id, userId: me._id, type: 'break', breakKind: ev.breakKind, afterSessionId: ev.afterId, plannedMin: ev.minutes,
         actualMin: ev.minutes, status: 'completed', interruptions: 0, startedAt: ev.start, endedAt: ev.t, platform: 'web',
         tokensAwarded: RULES.breakReward, awards: credited, createdAt: ev.start, updatedAt: ev.t,
       });
@@ -248,14 +255,13 @@ async function main() {
     } else {
       if (balance < ev.amount) throw new Error(`Demo timeline overspends: ${ev.reason} of ${ev.amount} at balance ${balance}`);
       balance -= ev.amount;
-      txs.push({ _id: oid(), userId: iker._id, amount: -ev.amount, type: 'burn', reason: ev.reason, refId: ev.refId, day: ev.day, balanceAfter: balance, createdAt: ev.t });
+      txs.push({ _id: oid(), userId: me._id, amount: -ev.amount, type: 'burn', reason: ev.reason, refId: ev.refId, day: ev.day, balanceAfter: balance, createdAt: ev.t });
     }
   }
   const lastAchieved = [...doneByDay].filter(([, m]) => m >= GOAL_MIN).map(([d]) => d).sort().at(-1) ?? null;
   streak = { ...streak, lastActiveDate: lastAchieved, freezes: PURCHASES.some((p) => p.reason === 'streak_freeze' && at(dayAgo(p.daysAgo), '20:00') <= NOW) ? 1 : 0 };
 
   // 5. Write everything.
-  const col = (m: { collection: mongoose.Collection }) => m.collection;
   await col(Session).insertMany(sessions as never[]);
   await col(TokenTransaction).insertMany(txs as never[]);
 
@@ -264,23 +270,23 @@ async function main() {
     const done = doneByDay.get(day) ?? 0;
     const used = screenUsed.get(day)!;
     return {
-      _id: oid(), userId: iker._id, date: day, focusTargetMin: GOAL_MIN, focusDoneMin: done, screenLimitMin: SCREEN_LIMIT, screenUsedMin: used,
+      _id: oid(), userId: me._id, date: day, focusTargetMin: GOAL_MIN, focusDoneMin: done, screenLimitMin: SCREEN_LIMIT, screenUsedMin: used,
       achieved: done >= GOAL_MIN, screenBonusAwarded: day !== TODAY && used <= SCREEN_LIMIT, createdAt: at(day, '00:00'), updatedAt: at(day, '23:00'),
     };
   });
   await col(Goal).insertMany(goals as never[]);
 
-  await col(InventoryItem).insertMany(owned.map((o) => ({ _id: oid(), userId: iker._id, rewardId: rewards.get(o.slug)!._id, acquiredAt: o.at })) as never[]);
+  await col(InventoryItem).insertMany(owned.map((o) => ({ _id: oid(), userId: me._id, rewardId: rewards.get(o.slug)!._id, acquiredAt: o.at })) as never[]);
   if (donation) {
     const r = rewards.get(donation.slug)!;
-    await col(Donation).insertMany([{ _id: oid(), userId: iker._id, rewardId: r._id, cause: r.cause ?? r.name, tokens: r.cost, status: 'pledged', pledgedAt: donation.at }] as never[]);
+    await col(Donation).insertMany([{ _id: oid(), userId: me._id, rewardId: r._id, cause: r.cause ?? r.name, tokens: r.cost, status: 'pledged', pledgedAt: donation.at }] as never[]);
   }
   const unlocks = [
     ...pastUnlocks.map((u) => {
       const app = APP_CATALOG.find((a) => a.id === u.app)!;
-      return { _id: oid(), userId: iker._id, appId: app.id, tokens: u.cost, startedAt: u.at, expiresAt: new Date(u.at.getTime() + app.minutes * MIN) };
+      return { _id: oid(), userId: me._id, appId: app.id, tokens: u.cost, startedAt: u.at, expiresAt: new Date(u.at.getTime() + app.minutes * MIN) };
     }),
-    { _id: oid(), userId: iker._id, appId: spotify.id, tokens: spotify.cost, startedAt: spotifyStart, expiresAt: new Date(spotifyStart.getTime() + spotify.minutes * MIN) },
+    { _id: oid(), userId: me._id, appId: activeApp.id, tokens: activeApp.cost, startedAt: activeAppStart, expiresAt: new Date(activeAppStart.getTime() + activeApp.minutes * MIN) },
   ];
   await col(AppUnlock).insertMany(unlocks as never[]);
 
@@ -297,16 +303,16 @@ async function main() {
     const c = challenges.get(title);
     if (!c) continue;
     await ChallengeProgress.updateOne(
-      { challengeId: c._id, userId: iker._id },
+      { challengeId: c._id, userId: me._id },
       { $set: { progress: Math.min(value, c.target), completed: value >= c.target, claimedAt: claimed ? claimedAt : null } },
       { upsert: true },
     );
   }
 
-  const equipSlug = { hat: 'hat-crown', outfit: 'outfit-hoodie', background: 'bg-forest' } as const;
+  const equipSlug = hero.equip;
   const equipped = Object.fromEntries(Object.entries(equipSlug).filter(([, slug]) => owned.some((o) => o.slug === slug)).map(([slot, slug]) => [slot, rewards.get(slug)!._id]));
   await User.updateOne(
-    { _id: iker._id },
+    { _id: me._id },
     {
       $set: {
         tokenBalance: balance, xp, level, streak, 'avatar.equipped': equipped,
@@ -315,6 +321,47 @@ async function main() {
       },
     },
   );
+  const ledger = txs.reduce((n, t) => n + (t.amount as number), 0);
+  console.log(`Demo data for ${hero.username}: balance ${balance} (ledger sum ${ledger}), level ${level}, streak ${streak.current} (best ${streak.longest}), freezes ${streak.freezes}`);
+  console.log(`  ${sessions.length} sessions, ${txs.length} ledger rows, ${owned.length} avatar items, ${unlocks.length} app unlocks, ${FRIENDS.length} friends`);
+  console.log(`  this week: ${weekFocus} focus min, ${weekBreaks} breaks`);
+  if (ledger !== balance) throw new Error('Ledger does not add up to the balance');
+}
+
+async function main() {
+  await mongoose.connect(env.mongoUri);
+
+  const rewards = new Map((await Reward.find()).map((r) => [r.slug, r]));
+  if (rewards.size === 0) throw new Error('No rewards found. Run `npm run seed` first.');
+
+  // 1. Users.
+  const upsertUser = async (email: string, set: Record<string, unknown>, onInsert: Record<string, unknown>) => {
+    await User.updateOne({ email }, { $set: set, $setOnInsert: onInsert }, { upsert: true });
+    return (await User.findOne({ email }))!;
+  };
+  const passwordHash = await bcrypt.hash('123456', 10);
+  const heroUsers = [];
+  for (const h of HEROES) {
+    heroUsers.push(await upsertUser(h.email, { username: h.username, displayName: h.displayName, passwordHash, timezone: TZ }, { inviteCode: h.code }));
+  }
+  const friendUsers = [];
+  for (const f of FRIENDS) friendUsers.push(await upsertUser(f.email, { displayName: f.name, timezone: TZ }, { inviteCode: f.code }));
+  const heroIds = heroUsers.map((u) => u._id);
+  const ids = [...heroIds, ...friendUsers.map((u) => u._id)];
+
+  // 2. Wipe previous demo data.
+  await Promise.all([
+    Session.deleteMany({ userId: { $in: ids } }),
+    Goal.deleteMany({ userId: { $in: ids } }),
+    TokenTransaction.deleteMany({ userId: { $in: ids } }),
+    InventoryItem.deleteMany({ userId: { $in: ids } }),
+    Donation.deleteMany({ userId: { $in: ids } }),
+    ChallengeProgress.deleteMany({ userId: { $in: ids } }),
+    AppUnlock.deleteMany({ userId: { $in: ids } }),
+  ]);
+
+  // 3. Each demo account gets its own timeline.
+  for (const [i, h] of HEROES.entries()) await buildHero(h, heroUsers[i], friendUsers, rewards);
 
   // 6. Friends with a week of focus, so the leaderboards have people on them.
   for (const [k, f] of FRIENDS.entries()) {
@@ -332,15 +379,9 @@ async function main() {
     await col(TokenTransaction).insertMany([{ _id: oid(), userId: u._id, amount: earned, type: 'earn', reason: 'focus_complete', day: TODAY, balanceAfter: earned, createdAt: NOW }] as never[]);
     await User.updateOne(
       { _id: u._id },
-      { $set: { tokenBalance: earned, xp: earned, level: levelForXp(earned), streak: { current: f.streak, longest: f.streak, lastActiveDate: TODAY, freezes: 0 }, friends: [iker._id], lastRolloverDate: TODAY } },
+      { $set: { tokenBalance: earned, xp: earned, level: levelForXp(earned), streak: { current: f.streak, longest: f.streak, lastActiveDate: TODAY, freezes: 0 }, friends: heroIds, lastRolloverDate: TODAY } },
     );
   }
-
-  const ledger = txs.reduce((n, t) => n + (t.amount as number), 0);
-  console.log(`Demo data for iker: balance ${balance} (ledger sum ${ledger}), level ${level}, streak ${streak.current} (best ${streak.longest}), freezes ${streak.freezes}`);
-  console.log(`  ${sessions.length} sessions, ${txs.length} ledger rows, ${owned.length} avatar items, ${unlocks.length} app unlocks, ${FRIENDS.length} friends`);
-  console.log(`  this week: ${weekFocus} focus min, ${weekBreaks} breaks`);
-  if (ledger !== balance) throw new Error('Ledger does not add up to the balance');
 
   await mongoose.disconnect();
 }
