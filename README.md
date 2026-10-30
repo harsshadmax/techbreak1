@@ -33,6 +33,8 @@ cd web && npm install
 npm run dev                # then open http://localhost:5173
 ```
 
+For a fully populated demo, also run `npm run seed:demo` in `server/`: it fills the account `iker` / `123456` with five weeks of sessions, a balanced token ledger, a 15-day streak, purchases, an equipped avatar, app unlocks, challenges and friends. Re-running it rebuilds that data.
+
 Sign in with the demo user `demo@techbreak.test` / `techbreak-demo` (`SEED_DEMO_PASSWORD` in `server/.env`), or create an account.
 
 ## Prerequisites
@@ -119,4 +121,5 @@ All routes are under `/api/v1` and need `Authorization: Bearer <accessToken>` ex
 | GET | `/leaderboard?scope=global\|friends` | This week's focus ranking |
 
 Token rules live in [server/src/modules/tokens/engine.ts](server/src/modules/tokens/engine.ts) — tune values there.
+
 

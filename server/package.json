@@ -11,7 +11,8 @@
     "db": "ts-node --transpile-only scripts/dev-db.ts",
     "seed": "ts-node --transpile-only seed/seed.ts",
     "typecheck": "tsc -p tsconfig.check.json",
-    "test": "jest --runInBand"
+    "test": "jest --runInBand",
+    "seed:demo": "ts-node --transpile-only seed/demo-data.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
